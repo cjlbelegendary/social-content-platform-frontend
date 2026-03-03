@@ -1,184 +1,361 @@
 <template>
   <div class="home-container">
-    <!-- 页面头部 -->
-    <el-page-header
-      content="AI内容生成"
-      @back="handleLogout"
-      class="page-header"
-    />
-    
-    <!-- 生成表单卡片 -->
-    <el-card class="generate-card">
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="100px"
-        class="generate-form"
-      >
-        <el-form-item label="创作需求" prop="prompt">
-          <el-input
-            v-model="form.prompt"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入创作需求（例如：春日野餐、职场穿搭、节日祝福）"
-            size="large"
-          />
-        </el-form-item>
-        
-        <el-form-item label="目标平台" prop="platform">
-          <el-select
-            v-model="form.platform"
-            placeholder="请选择发布平台"
-            size="large"
-            style="width: 100%;"
-          >
+    <!-- 左侧：历史记录栏 -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h3>创作历史</h3>
+        <el-button type="primary" size="small" @click="startNewChat">
+          <el-icon><Plus /></el-icon>
+          新创作
+        </el-button>
+      </div>
+      <div class="history-list">
+        <div
+          v-for="(chat, index) in chatHistory"
+          :key="index"
+          class="history-item"
+          :class="{ active: currentChatIndex === index }"
+          @click="switchChat(index)"
+        >
+          <div class="history-title">
+            <el-icon><Document /></el-icon>
+            {{ chat.title }}
+          </div>
+          <div class="history-time">{{ chat.time }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：对话主界面 -->
+    <div class="chat-main">
+      <!-- 顶部栏 -->
+      <div class="chat-header">
+        <div class="header-left">
+          <div class="ai-avatar">
+            <el-icon><ChatDotRound /></el-icon>
+          </div>
+          <div class="header-info">
+            <h3>社交内容创作助手</h3>
+            <span class="status">在线</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <el-select v-model="currentPlatform" placeholder="选择平台" size="small">
             <el-option label="小红书" value="小红书" />
             <el-option label="微博" value="微博" />
             <el-option label="朋友圈" value="朋友圈" />
             <el-option label="抖音" value="抖音" />
           </el-select>
-        </el-form-item>
-        
-        <el-form-item label="内容标题" prop="title">
-          <el-input
-            v-model="form.title"
-            placeholder="请输入内容标题（例如：春日野餐文案）"
-            size="large"
-          />
-        </el-form-item>
-        
-        <el-form-item class="form-actions">
-          <el-button
-            type="primary"
-            size="large"
-            @click="handleGenerate"
-            :loading="loading"
-          >
-            生成内容
+          <el-button type="danger" size="small" @click="handleLogout">
+            退出登录
           </el-button>
-          <el-button size="large" @click="handleReset">重置</el-button>
-          <el-button
-            type="success"
-            size="large"
-            @click="$router.push('/content-list')"
-          >
-            查看我的内容
-          </el-button>
-          <el-button
-            type="warning"
-            size="large"
-            @click="$router.push('/admin/user-list')"
-            v-if="isAdmin"
-          >
-            管理员后台
-          </el-button>
-        </el-form-item>
-      </el-form>
-      
-      <!-- 生成结果展示 -->
-      <div v-if="result" class="result-section">
-        <el-divider content-position="left">生成结果</el-divider>
-        <el-input
-          v-model="result.content"
-          type="textarea"
-          :rows="12"
-          readonly
-          class="result-textarea"
-        />
-        <el-button
-          type="success"
-          icon="CopyDocument"
-          @click="handleCopy"
-          class="copy-btn"
-        >
-          复制内容
-        </el-button>
+        </div>
       </div>
-    </el-card>
+
+      <!-- 对话消息区 -->
+      <div class="chat-messages" ref="messagesRef">
+        <div v-if="currentMessages.length === 0" class="empty-state">
+          <div class="empty-icon">
+            <el-icon :size="80"><MagicStick /></el-icon>
+          </div>
+          <h2>开始你的创作之旅</h2>
+          <p>输入你的创作需求，我会为你生成适配平台的优质内容</p>
+          <div class="quick-prompts">
+            <el-tag
+              v-for="prompt in quickPrompts"
+              :key="prompt"
+              class="quick-prompt"
+              @click="useQuickPrompt(prompt)"
+            >
+              {{ prompt }}
+            </el-tag>
+          </div>
+        </div>
+
+        <div
+          v-for="(msg, index) in currentMessages"
+          :key="index"
+          class="message-item"
+          :class="msg.role"
+        >
+          <div class="message-avatar">
+            <el-icon v-if="msg.role === 'user'"><User /></el-icon>
+            <el-icon v-else><ChatDotRound /></el-icon>
+          </div>
+          <div class="message-content">
+            <div class="message-bubble">
+              <!-- 用户消息 -->
+              <template v-if="msg.role === 'user'">
+                <div class="user-prompt">
+                  <div class="prompt-text">{{ msg.content }}</div>
+                  <el-tag size="small" type="info">{{ msg.platform }}</el-tag>
+                </div>
+              </template>
+              <!-- AI消息（打字机效果） -->
+              <template v-else>
+                <div v-if="msg.loading" class="typing-indicator">
+                  <span></span><span></span><span></span>
+                </div>
+                <div v-else class="ai-content">
+                  <div class="content-text">{{ msg.displayContent }}</div>
+                  <div class="content-actions">
+                    <el-button
+                      type="primary"
+                      size="small"
+                      link
+                      @click="copyContent(msg.content)"
+                    >
+                      <el-icon><DocumentCopy /></el-icon>
+                      复制内容
+                    </el-button>
+                    <el-button
+                      type="success"
+                      size="small"
+                      link
+                      @click="regenerateContent(msg)"
+                    >
+                      <el-icon><Refresh /></el-icon>
+                      重新生成
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="message-time">{{ msg.time }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部输入区 -->
+      <div class="chat-input-area">
+        <div class="input-wrapper">
+          <el-input
+            v-model="userInput"
+            type="textarea"
+            :rows="3"
+            placeholder="输入你的创作需求（例如：春日野餐、职场穿搭、节日祝福）..."
+            @keydown.enter.ctrl="handleSend"
+            class="chat-input"
+          />
+          <div class="input-actions">
+            <span class="hint">Ctrl+Enter 发送</span>
+            <el-button
+              type="primary"
+              size="large"
+              :loading="loading"
+              @click="handleSend"
+              class="send-btn"
+            >
+              <el-icon><Promotion /></el-icon>
+              生成内容
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Plus,
+  Document,
+  ChatDotRound,
+  MagicStick,
+  User,
+  DocumentCopy,
+  Refresh,
+  Promotion
+} from '@element-plus/icons-vue'
 import { generateContent } from '@/api/content'
 import { removeToken } from '@/utils/auth'
 
-// 路由实例
 const router = useRouter()
-// 表单引用
-const formRef = ref(null)
-// 加载状态
+const messagesRef = ref(null)
+
+// 状态管理
+const currentPlatform = ref('小红书')
+const userInput = ref('')
 const loading = ref(false)
-// 生成结果
-const result = ref(null)
-// 是否管理员（临时占位，实际可从接口获取）
-const isAdmin = ref(false)
+const currentChatIndex = ref(-1)
+const chatHistory = ref([])
+const currentMessages = ref([])
 
-// 表单数据
-const form = ref({
-  prompt: '',
-  platform: '小红书',
-  title: ''
-})
+// 快捷提示词
+const quickPrompts = [
+  '春日野餐文案',
+  '职场穿搭分享',
+  '生日祝福文案',
+  '周末出游攻略',
+  '美食探店推荐'
+]
 
-// 表单校验规则
-const rules = ref({
-  prompt: [{ required: true, message: '请输入创作需求', trigger: 'blur' }],
-  platform: [{ required: true, message: '请选择目标平台', trigger: 'change' }],
-  title: [{ required: true, message: '请输入内容标题', trigger: 'blur' }]
-})
+// 滚动到底部
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (messagesRef.value) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    }
+  })
+}
 
-/**
- * 生成内容处理函数
- */
-const handleGenerate = async () => {
+// 格式化时间
+const formatTime = () => {
+  const now = new Date()
+  return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+}
+
+// 发送消息（精准修复版：针对你的后端返回格式）
+const handleSend = async () => {
+  if (!userInput.value.trim()) {
+    ElMessage.warning('请输入创作需求')
+    return
+  }
+
+  // 1. 添加用户消息
+  const userMsg = {
+    role: 'user',
+    content: userInput.value.trim(),
+    platform: currentPlatform.value,
+    time: formatTime()
+  }
+  currentMessages.value.push(userMsg)
+
+  // 2. 添加AI加载消息
+  const aiMsg = {
+    role: 'ai',
+    content: '',
+    displayContent: '',
+    loading: true,
+    time: formatTime()
+  }
+  currentMessages.value.push(aiMsg)
+
+  // 3. 清空输入框，滚动到底部
+  const prompt = userInput.value.trim()
+  userInput.value = ''
+  scrollToBottom()
+
+  // 4. 调用AI生成
+  loading.value = true
   try {
-    // 表单校验
-    await formRef.value.validate()
-    loading.value = true
-    
-    // 调用生成接口
-    const res = await generateContent(form.value)
+    const res = await generateContent({
+      prompt: prompt,
+      platform: currentPlatform.value,
+      title: prompt
+    })
+
+    console.log('后端返回原始数据：', res)
+
     if (res.code === 200) {
-      result.value = res.content
-      ElMessage.success('内容生成成功！')
+      // 5. 精准提取：直接取 res.content.content（你的后端格式）
+      const finalContent = res.content.content
+      
+      // 6. 先直接赋值，确保能显示（绕过打字机效果先测试）
+      aiMsg.loading = false
+      aiMsg.content = finalContent
+      aiMsg.displayContent = finalContent // 先直接显示，不打字机
+      
+      // 7. 保存到历史记录
+      if (currentChatIndex.value === -1) {
+        chatHistory.value.unshift({
+          title: prompt.length > 15 ? prompt.substring(0, 15) + '...' : prompt,
+          time: formatTime(),
+          messages: [...currentMessages.value]
+        })
+        currentChatIndex.value = 0
+      } else {
+        chatHistory.value[currentChatIndex.value].messages = [...currentMessages.value]
+      }
+      
+      // 8. 延迟启动打字机效果（确保内容先显示）
+      setTimeout(() => {
+        typeWriter(aiMsg, finalContent)
+      }, 100)
     } else {
-      ElMessage.error(res.msg || '内容生成失败')
+      ElMessage.error(res.msg || '生成失败')
+      aiMsg.loading = false
+      aiMsg.content = '生成失败，请稍后重试'
+      aiMsg.displayContent = aiMsg.content
     }
   } catch (error) {
     ElMessage.error('生成异常，请稍后重试')
-    console.error('生成失败：', error)
+    aiMsg.loading = false
+    aiMsg.content = '生成异常，请稍后重试'
+    aiMsg.displayContent = aiMsg.content
+    console.error('生成异常：', error)
   } finally {
     loading.value = false
   }
 }
 
-/**
- * 重置表单
- */
-const handleReset = () => {
-  formRef.value.resetFields()
-  result.value = null
+// 打字机效果（简化版：更稳定）
+const typeWriter = (msg, content, speed = 20) => {
+  msg.displayContent = ''
+  let index = 0
+  
+  // 确保DOM更新后再启动
+  nextTick(() => {
+    const timer = setInterval(() => {
+      if (index < content.length) {
+        msg.displayContent += content[index]
+        index++
+        scrollToBottom()
+      } else {
+        clearInterval(timer)
+        // 最终确保内容完整
+        msg.displayContent = content
+      }
+    }, speed)
+  })
 }
 
-/**
- * 复制生成的内容
- */
-const handleCopy = () => {
-  if (!result.value) return
-  navigator.clipboard.writeText(result.value.content).then(() => {
-    ElMessage.success('内容已复制到剪贴板！')
+// 使用快捷提示词
+const useQuickPrompt = (prompt) => {
+  userInput.value = prompt
+}
+
+// 复制内容
+const copyContent = (content) => {
+  navigator.clipboard.writeText(content).then(() => {
+    ElMessage.success('内容已复制到剪贴板')
   }).catch(() => {
     ElMessage.error('复制失败，请手动复制')
   })
 }
 
-/**
- * 退出登录
- */
+// 重新生成
+const regenerateContent = (msg) => {
+  // 找到对应的用户消息
+  const userMsgIndex = currentMessages.value.findIndex(m => m.role === 'user' && currentMessages.value.indexOf(m) < currentMessages.value.indexOf(msg))
+  if (userMsgIndex !== -1) {
+    const userMsg = currentMessages.value[userMsgIndex]
+    userInput.value = userMsg.content
+    currentPlatform.value = userMsg.platform
+    // 移除当前AI消息及之后的消息
+    currentMessages.value = currentMessages.value.slice(0, userMsgIndex + 1)
+    handleSend()
+  }
+}
+
+// 开始新对话
+const startNewChat = () => {
+  currentChatIndex.value = -1
+  currentMessages.value = []
+  userInput.value = ''
+}
+
+// 切换历史对话
+const switchChat = (index) => {
+  currentChatIndex.value = index
+  currentMessages.value = [...chatHistory.value[index].messages]
+  scrollToBottom()
+}
+
+// 退出登录
 const handleLogout = () => {
   ElMessageBox.confirm(
     '确定要退出登录吗？',
@@ -194,44 +371,363 @@ const handleLogout = () => {
     ElMessage.success('已退出登录')
   })
 }
+
+// 页面加载时初始化
+onMounted(() => {
+  // 可以从localStorage加载历史记录（可选）
+})
 </script>
 
 <style scoped>
 .home-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.page-header {
+/* 左侧历史记录栏 */
+.sidebar {
+  width: 280px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.history-item {
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f5f7fa;
+}
+
+.history-item:hover {
+  background: #e8f0fe;
+  transform: translateX(5px);
+}
+
+.history-item.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.history-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.history-time {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* 右侧对话主界面 */
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+/* 顶部栏 */
+.chat-header {
+  padding: 15px 25px;
+  background: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.ai-avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 22px;
+}
+
+.header-info h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.status {
+  font-size: 12px;
+  color: #67c23a;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #67c23a;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* 对话消息区 */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px;
+  background: #f8f9fa;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.empty-icon {
+  color: #667eea;
   margin-bottom: 20px;
 }
 
-.generate-card {
-  padding: 20px;
+.empty-state h2 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 24px;
 }
 
-.generate-form {
+.empty-state p {
+  color: #666;
   margin-bottom: 30px;
 }
 
-.form-actions {
+.quick-prompts {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-top: 20px;
+  justify-content: center;
 }
 
-.result-section {
-  margin-top: 30px;
-}
-
-.result-textarea {
-  margin-bottom: 10px;
+.quick-prompt {
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 8px 15px;
   font-size: 14px;
+}
+
+.quick-prompt:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* 消息气泡 */
+.message-item {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.message-item.user {
+  flex-direction: row-reverse;
+}
+
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e8f0fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #667eea;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.message-item.user .message-avatar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.message-content {
+  max-width: 70%;
+}
+
+.message-bubble {
+  background: white;
+  padding: 18px 22px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  margin-bottom: 8px;
+}
+
+.message-item.user .message-bubble {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* 用户消息 */
+.user-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prompt-text {
+  flex: 1;
+  font-size: 15px;
   line-height: 1.6;
 }
 
-.copy-btn {
-  margin-top: 10px;
+/* AI消息 */
+.typing-indicator {
+  display: flex;
+  gap: 5px;
+  padding: 10px 0;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #667eea;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes typing {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+.ai-content {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #333;
+}
+
+.content-text {
+  white-space: pre-wrap;
+  margin-bottom: 15px;
+}
+
+.content-actions {
+  display: flex;
+  gap: 15px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.message-time {
+  font-size: 12px;
+  color: #999;
+  padding: 0 5px;
+}
+
+/* 底部输入区 */
+.chat-input-area {
+  padding: 20px 30px;
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.input-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.chat-input {
+  margin-bottom: 15px;
+}
+
+.chat-input :deep(.el-textarea__inner) {
+  border-radius: 15px;
+  border: 2px solid #e8f0fe;
+  font-size: 15px;
+  padding: 15px;
+  transition: all 0.3s;
+}
+
+.chat-input :deep(.el-textarea__inner):focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hint {
+  font-size: 12px;
+  color: #999;
+}
+
+.send-btn {
+  border-radius: 25px;
+  padding: 0 30px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.send-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
 }
 </style>
