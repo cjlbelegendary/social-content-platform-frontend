@@ -1,24 +1,33 @@
 <template>
   <div class="home-container">
     <!-- 左侧：历史记录栏 -->
+    <!-- 左侧：历史记录栏 -->
     <div class="sidebar">
       <div class="sidebar-header">
         <h3>创作历史</h3>
         <el-button type="primary" size="small" @click="startNewChat">
-          <el-icon><Plus /></el-icon>
+          <el-icon>
+            <Plus />
+          </el-icon>
           新创作
         </el-button>
       </div>
       <div class="history-list">
-        <div
-          v-for="(chat, index) in chatHistory"
-          :key="index"
-          class="history-item"
-          :class="{ active: currentChatIndex === index }"
-          @click="switchChat(index)"
-        >
+        <!-- 加载状态提示 -->
+        <div v-if="loadingHistory" class="history-loading">
+          <el-skeleton :rows="3" animated />
+        </div>
+        <!-- 无历史记录提示 -->
+        <div v-else-if="chatHistory.length === 0" class="no-history">
+          <el-empty description="暂无创作历史，开始你的第一次创作吧～" />
+        </div>
+        <!-- 历史列表 -->
+        <div v-else v-for="(chat, index) in chatHistory" :key="chat.id || index" class="history-item"
+          :class="{ active: currentChatIndex === index }" @click="switchChat(index)">
           <div class="history-title">
-            <el-icon><Document /></el-icon>
+            <el-icon>
+              <Document />
+            </el-icon>
             {{ chat.title }}
           </div>
           <div class="history-time">{{ chat.time }}</div>
@@ -32,7 +41,9 @@
       <div class="chat-header">
         <div class="header-left">
           <div class="ai-avatar">
-            <el-icon><ChatDotRound /></el-icon>
+            <el-icon>
+              <ChatDotRound />
+            </el-icon>
           </div>
           <div class="header-info">
             <h3>社交内容创作助手</h3>
@@ -40,7 +51,7 @@
           </div>
         </div>
         <div class="header-right">
-          <el-select v-model="currentPlatform" placeholder="选择平台" size="small">
+          <el-select v-model="currentPlatform" placeholder="选择平台" size="small" style="width:80px;">
             <el-option label="小红书" value="小红书" />
             <el-option label="微博" value="微博" />
             <el-option label="朋友圈" value="朋友圈" />
@@ -56,31 +67,27 @@
       <div class="chat-messages" ref="messagesRef">
         <div v-if="currentMessages.length === 0" class="empty-state">
           <div class="empty-icon">
-            <el-icon :size="80"><MagicStick /></el-icon>
+            <el-icon :size="80">
+              <MagicStick />
+            </el-icon>
           </div>
           <h2>开始你的创作之旅</h2>
           <p>输入你的创作需求，我会为你生成适配平台的优质内容</p>
           <div class="quick-prompts">
-            <el-tag
-              v-for="prompt in quickPrompts"
-              :key="prompt"
-              class="quick-prompt"
-              @click="useQuickPrompt(prompt)"
-            >
+            <el-tag v-for="prompt in quickPrompts" :key="prompt" class="quick-prompt" @click="useQuickPrompt(prompt)">
               {{ prompt }}
             </el-tag>
           </div>
         </div>
 
-        <div
-          v-for="(msg, index) in currentMessages"
-          :key="index"
-          class="message-item"
-          :class="msg.role"
-        >
+        <div v-for="(msg, index) in currentMessages" :key="index" class="message-item" :class="msg.role">
           <div class="message-avatar">
-            <el-icon v-if="msg.role === 'user'"><User /></el-icon>
-            <el-icon v-else><ChatDotRound /></el-icon>
+            <el-icon v-if="msg.role === 'user'">
+              <User />
+            </el-icon>
+            <el-icon v-else>
+              <ChatDotRound />
+            </el-icon>
           </div>
           <div class="message-content">
             <div class="message-bubble">
@@ -99,22 +106,16 @@
                 <div v-else class="ai-content">
                   <div class="content-text">{{ msg.displayContent }}</div>
                   <div class="content-actions">
-                    <el-button
-                      type="primary"
-                      size="small"
-                      link
-                      @click="copyContent(msg.content)"
-                    >
-                      <el-icon><DocumentCopy /></el-icon>
+                    <el-button type="primary" size="small" link @click="copyContent(msg.content)">
+                      <el-icon>
+                        <DocumentCopy />
+                      </el-icon>
                       复制内容
                     </el-button>
-                    <el-button
-                      type="success"
-                      size="small"
-                      link
-                      @click="regenerateContent(msg)"
-                    >
-                      <el-icon><Refresh /></el-icon>
+                    <el-button type="success" size="small" link @click="regenerateContent(msg)">
+                      <el-icon>
+                        <Refresh />
+                      </el-icon>
                       重新生成
                     </el-button>
                   </div>
@@ -129,24 +130,14 @@
       <!-- 底部输入区 -->
       <div class="chat-input-area">
         <div class="input-wrapper">
-          <el-input
-            v-model="userInput"
-            type="textarea"
-            :rows="3"
-            placeholder="输入你的创作需求（例如：春日野餐、职场穿搭、节日祝福）..."
-            @keydown.enter.ctrl="handleSend"
-            class="chat-input"
-          />
+          <el-input v-model="userInput" type="textarea" :rows="3" placeholder="输入你的创作需求（例如：春日野餐、职场穿搭、节日祝福）..."
+            @keydown.enter.ctrl="handleSend" class="chat-input" />
           <div class="input-actions">
             <span class="hint">Ctrl+Enter 发送</span>
-            <el-button
-              type="primary"
-              size="large"
-              :loading="loading"
-              @click="handleSend"
-              class="send-btn"
-            >
-              <el-icon><Promotion /></el-icon>
+            <el-button type="primary" size="large" :loading="loading" @click="handleSend" class="send-btn">
+              <el-icon>
+                <Promotion />
+              </el-icon>
               生成内容
             </el-button>
           </div>
@@ -157,7 +148,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -170,7 +161,7 @@ import {
   Refresh,
   Promotion
 } from '@element-plus/icons-vue'
-import { generateContent } from '@/api/content'
+import { generateContent, getContentList } from '@/api/content' // 导入getContentList
 import { removeToken } from '@/utils/auth'
 
 const router = useRouter()
@@ -181,8 +172,9 @@ const currentPlatform = ref('小红书')
 const userInput = ref('')
 const loading = ref(false)
 const currentChatIndex = ref(-1)
-const chatHistory = ref([])
-const currentMessages = ref([])
+const chatHistory = ref([]) // 存储后端返回的历史对话
+const currentMessages = ref([]) // 当前显示的对话消息
+const loadingHistory = ref(false) // 加载历史的loading状态
 
 // 快捷提示词
 const quickPrompts = [
@@ -202,20 +194,118 @@ const scrollToBottom = () => {
   })
 }
 
-// 格式化时间
-const formatTime = () => {
-  const now = new Date()
-  return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+// 格式化时间（适配后端返回的时间格式）
+const formatTime = (timeStr = '') => {
+  if (!timeStr) {
+    const now = new Date()
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+  }
+  // 转换后端返回的 "2026-03-03 13:47:57" 为 "13:47"
+  return timeStr.split(' ')[1]?.substring(0, 5) || timeStr
 }
 
-// 发送消息（精准修复版：针对你的后端返回格式）
+// 全局定时器变量
+let typeWriterTimer = null
+
+// 打字机效果（最终响应式版）
+const typeWriter = (msg, content, speed = 30) => {
+  if (typeWriterTimer) clearInterval(typeWriterTimer)
+
+  msg.displayContent = ''
+  let currentIndex = 0
+  const contentLength = content.length
+
+  typeWriterTimer = setInterval(() => {
+    if (currentIndex < contentLength) {
+      const newContent = msg.displayContent + content[currentIndex]
+      msg.displayContent = newContent
+      currentIndex++
+      scrollToBottom()
+    } else {
+      clearInterval(typeWriterTimer)
+      typeWriterTimer = null
+    }
+  }, speed)
+}
+
+// 页面卸载清理
+onUnmounted(() => {
+  if (typeWriterTimer) clearInterval(typeWriterTimer)
+})
+
+// ========== 核心修复：从后端加载历史对话 ==========
+// 转换后端数据为前端对话格式
+const transformBackendData = (backendList) => {
+  const history = []
+  backendList.forEach(item => {
+    // 构造单条历史对话（对应一次创作）
+    const chatItem = {
+      id: item.id, // 后端返回的内容ID
+      title: item.title, // 创作标题
+      time: formatTime(item.create_time), // 格式化时间
+      // 构造对话消息（用户消息+AI消息）
+      messages: [
+        // 用户消息
+        {
+          role: 'user',
+          content: item.title, // 创作需求=标题
+          platform: item.platform, // 创作平台
+          time: formatTime(item.create_time)
+        },
+        // AI消息
+        {
+          role: 'ai',
+          content: item.content, // AI生成的内容
+          displayContent: item.content, // 直接显示完整内容（历史记录无打字机）
+          loading: false,
+          time: formatTime(item.create_time)
+        }
+      ]
+    }
+    history.push(chatItem)
+  })
+  return history
+}
+
+// 加载后端历史对话
+const loadHistoryFromBackend = async () => {
+  loadingHistory.value = true
+  try {
+    const res = await getContentList()
+    if (res.code === 200 && res.content_list) {
+      // 转换后端数据为前端格式
+      const transformedHistory = transformBackendData(res.content_list)
+      chatHistory.value = transformedHistory
+
+      // 如果有历史记录，默认选中第一条
+      if (chatHistory.value.length > 0) {
+        currentChatIndex.value = 0
+        currentMessages.value = [...chatHistory.value[0].messages]
+        scrollToBottom()
+      }
+    } else {
+      chatHistory.value = []
+      currentMessages.value = []
+    }
+  } catch (error) {
+    console.error('加载历史对话失败：', error)
+    ElMessage.warning('加载历史创作失败，仅显示新创作内容')
+    chatHistory.value = []
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+// 发送消息（适配后端接口）
 const handleSend = async () => {
   if (!userInput.value.trim()) {
     ElMessage.warning('请输入创作需求')
     return
   }
 
-  // 1. 添加用户消息
+  if (typeWriterTimer) clearInterval(typeWriterTimer)
+
+  // 添加用户消息
   const userMsg = {
     role: 'user',
     content: userInput.value.trim(),
@@ -224,7 +314,7 @@ const handleSend = async () => {
   }
   currentMessages.value.push(userMsg)
 
-  // 2. 添加AI加载消息
+  // 响应式AI消息对象
   const aiMsg = {
     role: 'ai',
     content: '',
@@ -234,47 +324,40 @@ const handleSend = async () => {
   }
   currentMessages.value.push(aiMsg)
 
-  // 3. 清空输入框，滚动到底部
-  const prompt = userInput.value.trim()
+  // 清空输入框
+  const inputPrompt = userInput.value.trim()
   userInput.value = ''
   scrollToBottom()
 
-  // 4. 调用AI生成
   loading.value = true
   try {
     const res = await generateContent({
-      prompt: prompt,
+      prompt: inputPrompt,
       platform: currentPlatform.value,
-      title: prompt
+      title: inputPrompt
     })
 
-    console.log('后端返回原始数据：', res)
-
     if (res.code === 200) {
-      // 5. 精准提取：直接取 res.content.content（你的后端格式）
-      const finalContent = res.content.content
-      
-      // 6. 先直接赋值，确保能显示（绕过打字机效果先测试）
+      const fullContent = res.content.content
+      aiMsg.content = fullContent
       aiMsg.loading = false
-      aiMsg.content = finalContent
-      aiMsg.displayContent = finalContent // 先直接显示，不打字机
-      
-      // 7. 保存到历史记录
-      if (currentChatIndex.value === -1) {
-        chatHistory.value.unshift({
-          title: prompt.length > 15 ? prompt.substring(0, 15) + '...' : prompt,
-          time: formatTime(),
-          messages: [...currentMessages.value]
-        })
-        currentChatIndex.value = 0
-      } else {
-        chatHistory.value[currentChatIndex.value].messages = [...currentMessages.value]
-      }
-      
-      // 8. 延迟启动打字机效果（确保内容先显示）
+
       setTimeout(() => {
-        typeWriter(aiMsg, finalContent)
+        typeWriter(aiMsg, fullContent, 25)
       }, 100)
+
+      // 新增：将新创作添加到历史列表头部
+      const newChatItem = {
+        id: res.content.id, // 后端返回的新内容ID
+        title: inputPrompt.length > 15 ? inputPrompt.substring(0, 15) + '...' : inputPrompt,
+        time: formatTime(),
+        messages: [...currentMessages.value]
+      }
+      chatHistory.value.unshift(newChatItem)
+      currentChatIndex.value = 0
+
+      // 可选：重新加载历史（确保和后端数据一致）
+      // await loadHistoryFromBackend()
     } else {
       ElMessage.error(res.msg || '生成失败')
       aiMsg.loading = false
@@ -290,27 +373,6 @@ const handleSend = async () => {
   } finally {
     loading.value = false
   }
-}
-
-// 打字机效果（简化版：更稳定）
-const typeWriter = (msg, content, speed = 20) => {
-  msg.displayContent = ''
-  let index = 0
-  
-  // 确保DOM更新后再启动
-  nextTick(() => {
-    const timer = setInterval(() => {
-      if (index < content.length) {
-        msg.displayContent += content[index]
-        index++
-        scrollToBottom()
-      } else {
-        clearInterval(timer)
-        // 最终确保内容完整
-        msg.displayContent = content
-      }
-    }, speed)
-  })
 }
 
 // 使用快捷提示词
@@ -329,13 +391,11 @@ const copyContent = (content) => {
 
 // 重新生成
 const regenerateContent = (msg) => {
-  // 找到对应的用户消息
   const userMsgIndex = currentMessages.value.findIndex(m => m.role === 'user' && currentMessages.value.indexOf(m) < currentMessages.value.indexOf(msg))
   if (userMsgIndex !== -1) {
     const userMsg = currentMessages.value[userMsgIndex]
     userInput.value = userMsg.content
     currentPlatform.value = userMsg.platform
-    // 移除当前AI消息及之后的消息
     currentMessages.value = currentMessages.value.slice(0, userMsgIndex + 1)
     handleSend()
   }
@@ -372,9 +432,11 @@ const handleLogout = () => {
   })
 }
 
-// 页面加载时初始化
+// 页面加载时初始化（核心：调用后端接口加载历史）
 onMounted(() => {
-  // 可以从localStorage加载历史记录（可选）
+  // 优先加载后端历史对话
+  loadHistoryFromBackend()
+  scrollToBottom()
 })
 </script>
 
@@ -646,9 +708,13 @@ onMounted(() => {
 }
 
 @keyframes typing {
-  0%, 80%, 100% {
+
+  0%,
+  80%,
+  100% {
     transform: scale(0);
   }
+
   40% {
     transform: scale(1);
   }
