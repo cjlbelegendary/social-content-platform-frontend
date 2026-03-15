@@ -1,19 +1,21 @@
 <template>
-  <div class="flex h-screen bg-gradient-to-br from-primary to-secondary">
-    <!-- 测试Tailwind CSS -->
-    <div class="fixed top-0 left-0 test-tailwind">Tailwind CSS Test</div>
+  <div class="flex h-screen bg-gray-100">
     <!-- 左侧：历史记录栏 -->
-    <div class="w-[280px] bg-white/95 backdrop-blur-md border-r border-gray-100 flex flex-col">
-      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
-        <h3 class="text-base font-medium text-gray-800">创作历史</h3>
-        <el-button type="primary" size="small" @click="startNewChat">
-          <el-icon>
-            <Plus />
-          </el-icon>
-          新创作
-        </el-button>
+    <div class="w-[300px] bg-gray-50 border-r border-gray-200 flex flex-col shadow-sm">
+      <div class="p-4 flex flex-col gap-1">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">🤖 社交内容生成助手</h3>
+        
+        <div class="flex justify-end">
+          <el-button size="small" @click="startNewChat" class="text-sm bg-blue-50 border-blue-100 border-1  hover:bg-blue-100 hover:border-blue-200 text-blue-400 font-bold w-full h-10 rounded-lg">
+            <el-icon class="mr-2">
+              <Plus />
+            </el-icon>
+            新创作
+          </el-button>
+        </div>
       </div>
-      <div class="flex-1 overflow-y-auto p-2.5">
+      <p class="text-xs text-gray-500 mx-4 my-2">创作历史</p>
+      <div class="flex-1 overflow-y-auto p-2 pr-4 bg-gray-50">
         <!-- 加载状态提示 -->
         <div v-if="loadingHistory" class="p-4">
           <el-skeleton :rows="3" animated />
@@ -24,132 +26,125 @@
         </div>
         <!-- 历史列表 -->
         <div v-else v-for="(chat, index) in chatHistory" :key="chat.id || index" 
-             class="p-3.5 rounded-lg mb-2.5 cursor-pointer transition-all duration-300 bg-gray-50 hover:bg-blue-50 hover:translate-x-1.5"
-             :class="{'bg-gradient-to-r from-primary to-secondary text-white': currentChatIndex === index}" 
+             class="p-3 rounded-lg mb-2 cursor-pointer transition-all duration-200 bg-gray-50 hover:bg-gray-100 hover:translate-x-1"
+             :class="{'bg-white': currentChatIndex === index}" 
              @click="switchChat(index)">
-          <div class="flex items-center gap-2 text-sm font-medium mb-1.5">
-            <el-icon>
+          <div class="flex items-center gap-2 text-sm font-medium mb-1" :class="{'font-bold': currentChatIndex === index}">
+            <el-icon class="text-gray-500">
               <Document />
             </el-icon>
             {{ chat.title }}
           </div>
-          <div class="text-xs opacity-70">{{ chat.time }}</div>
+          <div class="text-xs text-gray-500" >{{ chat.time }}</div>
         </div>
+      </div>
+      <div class="p-4">
+        <el-button @click="handleLogout" class="rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100 ">
+          退出登录
+        </el-button>
       </div>
     </div>
 
     <!-- 右侧：对话主界面 -->
-    <div class="flex-1 flex flex-col bg-white/90 backdrop-blur-md">
+    <div class="flex-1 flex flex-col bg-white">
       <!-- 顶部栏 -->
-      <div class="p-3.5 px-6 bg-white border-b border-gray-100 flex justify-between items-center shadow-sm">
-        <div class="flex items-center gap-3.5">
-          <div class="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xl">
-            <el-icon>
-              <ChatDotRound />
-            </el-icon>
-          </div>
-          <div>
-            <h3 class="text-base font-medium text-gray-800">社交内容创作助手</h3>
-            <span class="text-xs text-green-600 flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
-              在线
-            </span>
-          </div>
-        </div>
-        <div class="flex items-center gap-3.5">
-          <el-button type="danger" size="small" @click="handleLogout">
-            退出登录
-          </el-button>
-        </div>
+      <div class="p-3 px-6 bg-white border-b border-gray-200 flex flex-col justify-center items-center">
+        <div class="text-base font-medium text-gray-800">{{ currentChatIndex >= 0 && chatHistory.length > 0 ? chatHistory[currentChatIndex].title : '社交内容创作助手' }}</div>
+        <div class="text-xs text-gray-500">内容由ai生成</div>
       </div>
 
       <!-- 对话消息区 -->
-      <div class="flex-1 overflow-y-auto p-7 bg-gray-50" ref="messagesRef">
-        <div v-if="currentMessages.length === 0" class="text-center py-20 px-5">
-          <div class="text-primary mb-5">
-            <el-icon :size="80">
-              <MagicStick />
-            </el-icon>
-          </div>
-          <h2 class="text-2xl font-medium text-gray-800 mb-2.5">开始你的创作之旅</h2>
-          <p class="text-gray-600 mb-7.5">输入你的创作需求，我会为你生成适配平台的优质内容</p>
-          <div class="flex flex-wrap gap-2.5 justify-center">
-            <el-tag v-for="prompt in quickPrompts" :key="prompt" class="cursor-pointer transition-all duration-300 px-3.5 py-2 text-sm hover:bg-gradient-to-r hover:from-primary hover:to-secondary hover:text-white hover:-translate-y-0.5" @click="useQuickPrompt(prompt)">
-              {{ prompt }}
-            </el-tag>
-          </div>
-        </div>
-
-        <div v-for="(msg, index) in currentMessages" :key="index" class="flex gap-3.5 mb-7.5" :class="{'flex-row-reverse': msg.role === 'user'}">
-          <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary text-lg flex-shrink-0" :class="{'bg-gradient-to-br from-primary to-secondary text-white': msg.role === 'user'}">
-            <el-icon v-if="msg.role === 'user'">
-              <User />
-            </el-icon>
-            <el-icon v-else>
-              <ChatDotRound />
-            </el-icon>
-          </div>
-          <div class="max-w-[70%]">
-            <div class="bg-white p-3 rounded-xl shadow-sm mb-2" :class="{'bg-gradient-to-br from-primary to-secondary text-white': msg.role === 'user'}">
-              <!-- 用户消息 -->
-              <template v-if="msg.role === 'user'">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex-1 text-base leading-relaxed">{{ msg.content }}</div>
-                  <el-tag size="small" type="info">{{ msg.platform }}</el-tag>
-                </div>
-              </template>
-              <!-- AI消息（打字机效果） -->
-              <template v-else>
-                <div v-if="msg.loading" class="flex gap-1.5 py-2.5">
-                  <span class="w-2 h-2 rounded-full bg-primary animate-pulse" style="animation-delay: -0.32s"></span>
-                  <span class="w-2 h-2 rounded-full bg-primary animate-pulse" style="animation-delay: -0.16s"></span>
-                  <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                </div>
-                <div v-else class="text-base leading-relaxed text-gray-800">
-                  <div class="whitespace-pre-wrap mb-3.5">{{ msg.displayContent }}</div>
-                  <div class="flex gap-3.5 pt-2.5 border-t border-gray-100">
-                    <el-button type="primary" size="small" link @click="copyContent(msg.content)">
-                      <el-icon>
-                        <DocumentCopy />
-                      </el-icon>
-                      复制内容
-                    </el-button>
-                    <el-button type="success" size="small" link @click="regenerateContent(msg)">
-                      <el-icon>
-                        <Refresh />
-                      </el-icon>
-                      重新生成
-                    </el-button>
-                  </div>
-                </div>
-              </template>
+      <div class="flex-1 overflow-y-auto p-6 bg-white" ref="messagesRef">
+        <div class="max-w-3xl mx-auto">
+          <div v-if="currentMessages.length === 0" class="text-center py-20 px-5">
+            <div class="text-gray-500 mb-5">
+              <el-icon :size="80">
+                <MagicStick />
+              </el-icon>
             </div>
-            <div class="text-xs text-gray-500 px-1.5">{{ msg.time }}</div>
+            <h2 class="text-2xl font-medium text-gray-800 mb-2">开始你的创作之旅</h2>
+            <p class="text-gray-600 mb-7">输入你的创作需求，我会为你生成适配平台的优质内容</p>
+            <div class="flex flex-wrap gap-2 justify-center">
+              <el-tag v-for="prompt in quickPrompts" :key="prompt" class="cursor-pointer transition-all duration-200 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 hover:text-gray-800 hover:-translate-y-0.5" @click="useQuickPrompt(prompt)">
+                {{ prompt }}
+              </el-tag>
+            </div>
+          </div>
+
+          <div v-for="(msg, index) in currentMessages" :key="index" class="flex gap-3 mb-6" :class="{'flex-row-reverse': msg.role === 'user'}">
+            <div class="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-base flex-shrink-0" :class="{'bg-gray-300 text-gray-700': msg.role === 'user'}">
+              <el-icon v-if="msg.role === 'user'">
+                <User />
+              </el-icon>
+              <el-icon v-else>
+                <ChatDotRound />
+              </el-icon>
+            </div>
+            <div class="max-w-[80%]">
+              <div class="p-4 rounded-[12px] mb-1" :class="{'bg-gray-200': msg.role === 'user', 'bg-white': msg.role === 'ai'}">
+                <!-- 用户消息 -->
+                <template v-if="msg.role === 'user'">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 text-base leading-relaxed text-gray-800">{{ msg.content }}</div>
+                    <el-tag size="small" class="bg-gray-300 text-gray-700 border-none">{{ msg.platform }}</el-tag>
+                  </div>
+                </template>
+                <!-- AI消息（打字机效果） -->
+                <template v-else>
+                  <div v-if="msg.loading" class="flex gap-1.5 py-2">
+                    <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style="animation-delay: -0.32s"></span>
+                    <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style="animation-delay: -0.16s"></span>
+                    <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
+                  </div>
+                  <div v-else class="text-base leading-relaxed text-gray-800">
+                    <div class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
+                    <div class="flex gap-3 pt-2 border-t border-gray-100">
+                      <el-button size="small" link @click="copyContent(msg.content)" class="text-sm text-gray-600 hover:text-gray-800">
+                        <el-icon>
+                          <DocumentCopy />
+                        </el-icon>
+                        复制内容
+                      </el-button>
+                      <el-button size="small" link @click="regenerateContent(msg)" class="text-sm text-gray-600 hover:text-gray-800">
+                        <el-icon>
+                          <Refresh />
+                        </el-icon>
+                        重新生成
+                      </el-button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div class="text-xs text-gray-500 px-1">{{ msg.time }}</div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 底部输入区 -->
-      <div class="p-5 px-7 bg-white border-t border-gray-100">
+      <div class="p-4 px-6 bg-white">
         <div class="max-w-[1000px] mx-auto">
-          <el-input v-model="userInput" type="textarea" :rows="3" placeholder="输入你的创作需求（例如：春日野餐、职场穿搭、节日祝福）..."
-            @keydown.enter.ctrl="handleSend" class="mb-3.5" />
-          <div class="flex justify-between items-center gap-3.5">
-            <span class="text-xs text-gray-500">Ctrl+Enter 发送</span>
-            <div class="flex items-center gap-3.5">
-              <span class="text-sm text-gray-600 font-medium">适配平台：</span>
-              <el-select v-model="currentPlatform" placeholder="选择平台" size="small" style="width:100px;">
-                <el-option label="小红书" value="小红书" />
-                <el-option label="微博" value="微博" />
-                <el-option label="朋友圈" value="朋友圈" />
-                <el-option label="抖音" value="抖音" />
-              </el-select>
-              <el-button type="primary" size="large" :loading="loading" @click="handleSend" class="rounded-full px-7.5 font-medium bg-gradient-to-r from-primary to-secondary border-none hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/40 transition-all duration-300">
-                <el-icon>
-                  <Promotion />
-                </el-icon>
-                生成内容
-              </el-button>
+          <!-- 悬浮风格输入框 -->
+          <div class="input-container rounded-[20px] border border-gray-200 hover:border-gray-300 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all duration-200 bg-white p-4">
+            <el-input v-model="userInput" type="textarea" :rows="3" placeholder="输入你的创作需求（例如：春日野餐、职场穿搭、节日祝福）..."
+              @keydown.enter.ctrl="handleSend" />
+            <div class="flex justify-between items-center gap-3 mt-3">
+              <span class="text-xs text-gray-500">Ctrl+Enter 发送</span>
+              <div class="flex items-center gap-3">
+                <span class="text-sm text-gray-600 font-medium">适配平台：</span>
+                <el-select v-model="currentPlatform" placeholder="选择平台" size="small" style="width:100px;">
+                  <el-option label="小红书" value="小红书" />
+                  <el-option label="微博" value="微博" />
+                  <el-option label="朋友圈" value="朋友圈" />
+                  <el-option label="抖音" value="抖音" />
+                </el-select>
+                <el-button size="large" :loading="loading" @click="handleSend" class="rounded-full px-7 font-medium bg-blue-500 hover:bg-blue-600 text-white border-none transition-all duration-200">
+                  <el-icon>
+                    <Promotion />
+                  </el-icon>
+                  生成内容
+                </el-button>
+              </div>
             </div>
           </div>
         </div>
@@ -343,16 +338,20 @@ const loadSessionDetail = async (sessionId) => {
           role: 'user',
           content: content.title,
           platform: content.platform,
-          time: formatTime(content.create_time)
+          time: formatTime(content.create_time),
+          originalTime: content.create_time // 存储原始时间用于排序
         })
         messages.push({
           role: 'ai',
           content: content.content,
           displayContent: content.content,
           loading: false,
-          time: formatTime(content.create_time)
+          time: formatTime(content.create_time),
+          originalTime: content.create_time // 存储原始时间用于排序
         })
       })
+      // 按照时间顺序排序，早的消息在前
+      messages.sort((a, b) => new Date(a.originalTime) - new Date(b.originalTime))
       currentMessages.value = messages
       scrollToBottom()
     }
@@ -375,12 +374,16 @@ const handleSend = async () => {
     streamController = null
   }
 
+  // 获取当前时间
+  const now = new Date().toISOString()
+  
   // 添加用户消息
   const userMsg = {
     role: 'user',
     content: userInput.value.trim(),
     platform: currentPlatform.value,
-    time: formatTime()
+    time: formatTime(),
+    originalTime: now // 存储原始时间用于排序
   }
   currentMessages.value.push(userMsg)
 
@@ -390,7 +393,8 @@ const handleSend = async () => {
     content: '',
     displayContent: '',
     loading: true,
-    time: formatTime()
+    time: formatTime(),
+    originalTime: now // 存储原始时间用于排序
   }
   currentMessages.value.push(aiMsg)
 
@@ -578,3 +582,17 @@ onMounted(() => {
   scrollToBottom()
 })
 </script>
+
+<style scoped>
+.input-container :deep(.el-textarea__inner) {
+  border: none;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.input-container :deep(.el-textarea) {
+  border: none;
+  box-shadow: none;
+}
+</style>

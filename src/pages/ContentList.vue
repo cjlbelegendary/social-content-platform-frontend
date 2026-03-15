@@ -19,17 +19,18 @@
       >
         <el-table-column prop="id" label="ID" width="80" align="center" />
         <el-table-column prop="title" label="标题" min-width="200" />
+        <el-table-column prop="session_title" label="会话" min-width="150" />
         <el-table-column prop="platform" label="发布平台" width="120" align="center">
           <template #default="scope">
-            <el-tag type="primary">{{ scope.row.platform }}</el-tag>
+            <el-tag class="bg-blue-50 text-blue-600 border-blue-200">{{ scope.row.platform }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="create_time" label="创建时间" width="200" align="center" />
         <el-table-column label="操作" width="120" align="center">
           <template #default="scope">
             <el-button
-              type="primary"
               size="small"
+              class="bg-blue-500 text-white hover:bg-blue-600"
               @click="handleView(scope.row)"
             >
               查看详情
@@ -53,9 +54,9 @@
           class="detail-textarea"
         />
         <template #footer>
-          <el-button @click="dialogVisible = false">关闭</el-button>
+          <el-button @click="dialogVisible = false" class="text-gray-600">关闭</el-button>
           <el-button
-            type="success"
+            class="bg-blue-500 text-white hover:bg-blue-600"
             @click="handleCopyDetail"
           >
             复制内容
