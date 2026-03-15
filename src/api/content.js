@@ -89,6 +89,16 @@ export const getContentList = () => {
   return service.get('/content/list')
 }
 
+// 获取会话列表
+export const getSessions = () => {
+  return service.get('/content/list')
+}
+
+// 获取会话详情
+export const getSessionDetail = (sessionId) => {
+  return service.get(`/content/session/${sessionId}`)
+}
+
 // 删除内容（如需使用）
 export const deleteContent = (contentId) => {
   return service.post('/content/delete', { content_id: contentId })

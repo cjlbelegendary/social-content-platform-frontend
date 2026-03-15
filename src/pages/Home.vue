@@ -172,7 +172,7 @@ import {
   Refresh,
   Promotion
 } from '@element-plus/icons-vue'
-import { generateContent, generateContentStream, getContentList } from '@/api/content' // 导入getContentList和generateContentStream
+import { generateContent, generateContentStream, getSessions, getSessionDetail } from '@/api/content' // 导入getSessions、getSessionDetail和generateContentStream
 import { removeToken } from '@/utils/auth'
 
 const router = useRouter()
@@ -186,6 +186,7 @@ const currentChatIndex = ref(-1)
 const chatHistory = ref([]) // 存储后端返回的历史对话
 const currentMessages = ref([]) // 当前显示的对话消息
 const loadingHistory = ref(false) // 加载历史的loading状态
+const sessions = ref([]) // 存储会话列表
 let streamController = null // 流式请求控制器
 let typeWriterTimeout = null // 打字机效果定时器
 
@@ -291,17 +292,30 @@ const transformBackendData = (backendList) => {
 const loadHistoryFromBackend = async () => {
   loadingHistory.value = true
   try {
-    const res = await getContentList()
-    if (res.code === 200 && res.content_list) {
-      // 转换后端数据为前端格式
-      const transformedHistory = transformBackendData(res.content_list)
+    const res = await getSessions()
+    if (res.code === 200 && res.session_list) {
+      // 存储会话列表
+      sessions.value = res.session_list
+      
+      // 转换后端会话列表为前端历史对话格式
+      const transformedHistory = []
+      res.session_list.forEach(session => {
+        const chatItem = {
+          id: session.session_id,
+          title: session.session_title,
+          time: formatTime(session.update_time),
+          session_id: session.session_id,
+          messages: []
+        }
+        transformedHistory.push(chatItem)
+      })
       chatHistory.value = transformedHistory
 
       // 如果有历史记录，默认选中第一条
       if (chatHistory.value.length > 0) {
         currentChatIndex.value = 0
-        currentMessages.value = [...chatHistory.value[0].messages]
-        scrollToBottom()
+        // 加载第一个会话的详情
+        await loadSessionDetail(chatHistory.value[0].session_id)
       }
     } else {
       chatHistory.value = []
@@ -313,6 +327,38 @@ const loadHistoryFromBackend = async () => {
     chatHistory.value = []
   } finally {
     loadingHistory.value = false
+  }
+}
+
+// 加载会话详情
+const loadSessionDetail = async (sessionId) => {
+  try {
+    const res = await getSessionDetail(sessionId)
+    if (res.code === 200 && res.session) {
+      const session = res.session
+      // 转换会话内容为前端消息格式
+      const messages = []
+      session.contents.forEach(content => {
+        messages.push({
+          role: 'user',
+          content: content.title,
+          platform: content.platform,
+          time: formatTime(content.create_time)
+        })
+        messages.push({
+          role: 'ai',
+          content: content.content,
+          displayContent: content.content,
+          loading: false,
+          time: formatTime(content.create_time)
+        })
+      })
+      currentMessages.value = messages
+      scrollToBottom()
+    }
+  } catch (error) {
+    console.error('加载会话详情失败：', error)
+    ElMessage.warning('加载会话详情失败')
   }
 }
 
@@ -355,10 +401,15 @@ const handleSend = async () => {
 
   loading.value = true
   
+  // 获取session_id
+  const currentChat = chatHistory.value[currentChatIndex.value]
+  const sessionId = currentChat ? currentChat.session_id : null
+  
   const streamData = {
     prompt: inputPrompt,
     platform: currentPlatform.value,
-    title: inputPrompt
+    title: inputPrompt,
+    session_id: sessionId
   }
 
   let fullContent = ''
@@ -422,7 +473,7 @@ const handleSend = async () => {
       loading.value = false
       streamController = null
     },
-    () => {
+    (data) => {
       // 流式结束
       console.log('流式请求完成，内容:', fullContent)
       // 清除所有定时器
@@ -441,15 +492,20 @@ const handleSend = async () => {
       scrollToBottom()
       
       if (fullContent) {
+        // 处理返回的session_id
+        const returnedSessionId = data && data.session_id ? data.session_id : sessionId
         // 将新创作添加到历史列表头部
         const newChatItem = {
           id: contentId, // 后端返回的新内容ID
           title: inputPrompt.length > 15 ? inputPrompt.substring(0, 15) + '...' : inputPrompt,
           time: formatTime(),
+          session_id: returnedSessionId,
           messages: [...currentMessages.value]
         }
         chatHistory.value.unshift(newChatItem)
         currentChatIndex.value = 0
+        // 重新加载会话列表，确保数据同步
+        loadHistoryFromBackend()
       }
       loading.value = false
       streamController = null
@@ -491,10 +547,11 @@ const startNewChat = () => {
 }
 
 // 切换历史对话
-const switchChat = (index) => {
+const switchChat = async (index) => {
   currentChatIndex.value = index
-  currentMessages.value = [...chatHistory.value[index].messages]
-  scrollToBottom()
+  const sessionId = chatHistory.value[index].session_id
+  // 加载会话详情
+  await loadSessionDetail(sessionId)
 }
 
 // 退出登录

@@ -69,7 +69,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getContentList } from '@/api/content'
+import { getSessions, getSessionDetail } from '@/api/content'
 
 // 加载状态
 const loading = ref(false)
@@ -86,14 +86,32 @@ const currentContent = ref('')
 const loadContentList = async () => {
   try {
     loading.value = true
-    const res = await getContentList()
-    if (res.code === 200) {
-      contentList.value = res.content_list || []
+    // 先获取会话列表
+    const sessionsRes = await getSessions()
+    if (sessionsRes.code === 200 && sessionsRes.session_list) {
+      const sessions = sessionsRes.session_list
+      const allContents = []
+      
+      // 遍历会话，获取每个会话的详细信息
+      for (const session of sessions) {
+        const detailRes = await getSessionDetail(session.session_id)
+        if (detailRes.code === 200 && detailRes.session) {
+          const sessionContents = detailRes.session.contents
+          // 为每个内容添加会话信息
+          sessionContents.forEach(content => {
+            content.session_id = session.session_id
+            content.session_title = session.session_title
+            allContents.push(content)
+          })
+        }
+      }
+      
+      contentList.value = allContents
       if (contentList.value.length === 0) {
         ElMessage.info('暂无生成的内容，请先去生成')
       }
     } else {
-      ElMessage.error(res.msg || '查询内容列表失败')
+      ElMessage.error(sessionsRes.msg || '查询内容列表失败')
     }
   } catch (error) {
     ElMessage.error('查询异常，请稍后重试')
