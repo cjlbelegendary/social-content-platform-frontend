@@ -59,8 +59,14 @@ export const generateContentStream = (data, onData, onError, onComplete) => {
             const content = line.substring(5).trim()
             if (content) {
               console.log('提取SSE数据:', content)
-              // 直接传递文本内容，不需要解析JSON
-              onData({ code: 200, content: content })
+              // 尝试解析JSON数据
+              try {
+                const jsonData = JSON.parse(content)
+                onData({ code: 200, ...jsonData })
+              } catch (e) {
+                // 如果不是JSON格式，直接传递文本内容
+                onData({ code: 200, content: content })
+              }
             }
           }
         }

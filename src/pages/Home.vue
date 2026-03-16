@@ -166,7 +166,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -231,28 +231,6 @@ const formatTime = (timeStr = '') => {
 // 全局定时器变量
 let typeWriterTimer = null
 
-// 打字机效果（最终响应式版）
-const typeWriter = (msg, content, speed = 30) => {
-  if (typeWriterTimer) clearInterval(typeWriterTimer)
-
-  msg.displayContent = ''
-  let currentIndex = 0
-  const contentLength = content.length
-
-  typeWriterTimer = setInterval(() => {
-    if (currentIndex < contentLength) {
-      const newContent = msg.displayContent + content[currentIndex]
-      msg.displayContent = newContent
-      currentIndex++
-      scrollToBottom()
-    } else {
-      clearInterval(typeWriterTimer)
-      typeWriterTimer = null
-    }
-  }, speed)
-}
-
-
 // 跳转到历史管理页
 const navigateToContentList = () => {
   router.push('/content-list')
@@ -296,40 +274,6 @@ onUnmounted(() => {
   }
 })
 
-// ========== 核心修复：从后端加载历史对话 ==========
-// 转换后端数据为前端对话格式
-const transformBackendData = (backendList) => {
-  const history = []
-  backendList.forEach(item => {
-    // 构造单条历史对话（对应一次创作）
-    const chatItem = {
-      id: item.id, // 后端返回的内容ID
-      title: item.title, // 创作标题
-      time: formatTime(item.create_time), // 格式化时间
-      // 构造对话消息（用户消息+AI消息）
-      messages: [
-        // 用户消息
-        {
-          role: 'user',
-          content: item.title, // 创作需求=标题
-          platform: item.platform, // 创作平台
-          time: formatTime(item.create_time)
-        },
-        // AI消息
-        {
-          role: 'ai',
-          content: item.content, // AI生成的内容
-          displayContent: item.content, // 直接显示完整内容（历史记录无打字机）
-          loading: false,
-          time: formatTime(item.create_time)
-        }
-      ]
-    }
-    history.push(chatItem)
-  })
-  return history
-}
-
 // 加载后端历史对话
 const loadHistoryFromBackend = async () => {
   loadingHistory.value = true
@@ -369,6 +313,33 @@ const loadHistoryFromBackend = async () => {
     chatHistory.value = []
   } finally {
     loadingHistory.value = false
+  }
+}
+
+// 只加载会话列表，不加载会话详情（用于生成完成后更新历史列表）
+const loadSessionListOnly = async () => {
+  try {
+    const res = await getSessions()
+    if (res.code === 200 && res.session_list) {
+      // 存储会话列表
+      sessions.value = res.session_list
+      
+      // 转换后端会话列表为前端历史对话格式
+      const transformedHistory = []
+      res.session_list.forEach(session => {
+        const chatItem = {
+          id: session.session_id,
+          title: session.session_title,
+          time: formatTime(session.update_time),
+          session_id: session.session_id,
+          messages: []
+        }
+        transformedHistory.push(chatItem)
+      })
+      chatHistory.value = transformedHistory
+    }
+  } catch (error) {
+    console.error('加载会话列表失败：', error)
   }
 }
 
@@ -435,14 +406,14 @@ const handleSend = async () => {
   currentMessages.value.push(userMsg)
 
   // 响应式AI消息对象
-  const aiMsg = {
+  const aiMsg = reactive({
     role: 'ai',
     content: '',
     displayContent: '',
     loading: true,
     time: formatTime(),
     originalTime: now // 存储原始时间用于排序
-  }
+  })
   currentMessages.value.push(aiMsg)
 
   // 清空输入框
@@ -466,11 +437,24 @@ const handleSend = async () => {
   let fullContent = ''
   let contentId = null
   let typingIndex = 0
+  let returnedSessionId = sessionId // 初始化为当前的sessionId
 
   console.log('开始发送流式请求')
+  // 打字机效果函数
+  const runTypeWriter = () => {
+    if (typingIndex < fullContent.length) {
+      aiMsg.displayContent = fullContent.substring(0, typingIndex + 1)
+      typingIndex++
+      scrollToBottom()
+      typeWriterTimeout = setTimeout(runTypeWriter, 20)
+    } else {
+      typeWriterTimeout = null
+    }
+  }
+
   streamController = generateContentStream(
     streamData,
-    (data) => {
+    (data) => { 
       console.log('收到流式数据:', data)
       if (data.code === 200) {
         if (data.content) {
@@ -482,29 +466,19 @@ const handleSend = async () => {
           console.log('当前fullContent:', fullContent)
           console.log('当前typingIndex:', typingIndex)
           
-          // 清除之前的定时器
-          if (typeWriterTimeout) {
-            clearTimeout(typeWriterTimeout)
-            typeWriterTimeout = null
+          // 如果没有打字机效果在运行，则启动
+          if (!typeWriterTimeout) {
+            // 重置打字索引
+            typingIndex = 0
+            // 启动打字机效果
+            runTypeWriter()
           }
-          
-          // 实现实时打字机效果
-          const typeWriter = () => {
-            if (typingIndex < fullContent.length) {
-              aiMsg.displayContent = fullContent.substring(0, typingIndex + 1)
-              typingIndex++
-              scrollToBottom()
-              console.log('打字中，当前displayContent:', aiMsg.displayContent)
-              typeWriterTimeout = setTimeout(typeWriter, 50) // 调整打字速度
-            } else {
-              console.log('打字完成')
-            }
-          }
-          
-          typeWriter()
         }
         if (data.id) {
           contentId = data.id
+        }
+        if (data.session_id) {
+          returnedSessionId = data.session_id
         }
       } else {
         ElMessage.error(data.msg || '生成失败')
@@ -527,36 +501,16 @@ const handleSend = async () => {
     (data) => {
       // 流式结束
       console.log('流式请求完成，内容:', fullContent)
-      // 清除所有定时器
-      if (typeWriterTimeout) {
-        clearTimeout(typeWriterTimeout)
-        typeWriterTimeout = null
-      }
-      if (typeWriterTimer) {
-        clearInterval(typeWriterTimer)
-        typeWriterTimer = null
-      }
       // 确保显示完整内容
       aiMsg.content = fullContent
-      aiMsg.displayContent = fullContent
       aiMsg.loading = false
       scrollToBottom()
       
       if (fullContent) {
-        // 处理返回的session_id
-        const returnedSessionId = data && data.session_id ? data.session_id : sessionId
-        // 将新创作添加到历史列表头部
-        const newChatItem = {
-          id: contentId, // 后端返回的新内容ID
-          title: inputPrompt.length > 15 ? inputPrompt.substring(0, 15) + '...' : inputPrompt,
-          time: formatTime(),
-          session_id: returnedSessionId,
-          messages: [...currentMessages.value]
-        }
-        chatHistory.value.unshift(newChatItem)
+        // 只更新会话列表，不更新会话详情，避免打断打字机效果
+        loadSessionListOnly()
+        // 设置当前选中的会话索引为0（最新的会话）
         currentChatIndex.value = 0
-        // 重新加载会话列表，确保数据同步
-        loadHistoryFromBackend()
       }
       loading.value = false
       streamController = null
