@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '@/utils/auth'
+import { validateAdmin } from '@/api/admin'
 
 // 导入页面组件
 import Login from '@/pages/Login.vue'
@@ -17,13 +18,33 @@ const requireAuth = (to, from, next) => {
   }
 }
 
-// 路由守卫：管理员权限（仅登录验证，接口层做权限校验）
+// 路由守卫：管理员权限（调用接口验证管理员身份）
 const requireAdmin = (to, from, next) => {
-  if (getToken()) {
-    next()
-  } else {
+  const token = getToken()
+  if (!token) {
     next('/login')
+    return
   }
+  
+  // 调用管理员身份验证接口
+  validateAdmin()
+  .then(response => {
+    if (response.code === 200 && response.admin_info.is_admin) {
+      next()
+    } else {
+      // 用户不是管理员
+      next('/home')
+    }
+  })
+  .catch(error => {
+    // 处理错误响应
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      next('/home')
+    } else {
+      // 其他错误，跳转到首页
+      next('/home')
+    }
+  })
 }
 
 // 路由规则

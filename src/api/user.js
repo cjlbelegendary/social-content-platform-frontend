@@ -23,5 +23,7 @@ export const register = (data) => {
  * @returns {Promise} 响应结果
  */
 export const getUserList = () => {
-  return service.get('/admin/user_list')
+  // 从localStorage获取token
+  const token = localStorage.getItem('access_token')
+  return service.post('/admin/user_list', token)
 }

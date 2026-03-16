@@ -5,12 +5,24 @@
       <div class="p-4 flex flex-col gap-1">
         <h3 class="text-lg font-bold text-gray-800 mb-4">🤖 社交内容生成助手</h3>
         
-        <div class="flex justify-end">
+        <div class="flex flex-col justify-end items-end gap-2">
           <el-button size="small" @click="startNewChat" class="text-sm bg-blue-50 border-blue-100 border-1  hover:bg-blue-100 hover:border-blue-200 text-blue-400 font-bold w-full h-10 rounded-lg">
             <el-icon class="mr-2">
               <Plus />
             </el-icon>
             新创作
+          </el-button>
+          <el-button size="small" @click="navigateToContentList" class="text-sm rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100">
+            <el-icon class="mr-2">
+              <Document />
+            </el-icon>
+            历史管理
+          </el-button>
+          <el-button v-if="isAdmin" size="small" @click="navigateToUserList" class="text-sm rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100">
+            <el-icon class="mr-2">
+              <UserFilled />
+            </el-icon>
+            用户列表
           </el-button>
         </div>
       </div>
@@ -165,9 +177,11 @@ import {
   User,
   DocumentCopy,
   Refresh,
-  Promotion
+  Promotion,
+  UserFilled
 } from '@element-plus/icons-vue'
 import { generateContent, generateContentStream, getSessions, getSessionDetail } from '@/api/content' // 导入getSessions、getSessionDetail和generateContentStream
+import { validateAdmin } from '@/api/admin'
 import { removeToken } from '@/utils/auth'
 
 const router = useRouter()
@@ -182,6 +196,7 @@ const chatHistory = ref([]) // 存储后端返回的历史对话
 const currentMessages = ref([]) // 当前显示的对话消息
 const loadingHistory = ref(false) // 加载历史的loading状态
 const sessions = ref([]) // 存储会话列表
+const isAdmin = ref(false) // 管理员状态
 let streamController = null // 流式请求控制器
 let typeWriterTimeout = null // 打字机效果定时器
 
@@ -238,6 +253,38 @@ const typeWriter = (msg, content, speed = 30) => {
 }
 
 
+// 跳转到历史管理页
+const navigateToContentList = () => {
+  router.push('/content-list')
+}
+// 跳转到用户列表页
+const navigateToUserList = () => {
+  router.push('/admin/user-list')
+}
+
+// 验证管理员身份
+const checkAdminStatus = async () => {
+  try {
+    const response = await validateAdmin(false) // 传递raiseError=false，非管理员时不抛出错误
+    if (response.code === 200 && response.admin_info.is_admin) {
+      isAdmin.value = true
+    } else {
+      isAdmin.value = false
+    }
+  } catch (error) {
+    // 非管理员或验证失败，不显示用户列表按钮
+    isAdmin.value = false
+  }
+}
+
+// 页面加载时初始化
+onMounted(() => {
+  // 优先加载后端历史对话
+  loadHistoryFromBackend()
+  // 检查管理员身份
+  checkAdminStatus()
+  scrollToBottom()
+})
 
 // 页面卸载清理
 onUnmounted(() => {
