@@ -105,6 +105,36 @@ export const getSessionDetail = (sessionId) => {
   return service.get(`/content/session/${sessionId}`)
 }
 
+// 获取所有生成内容（支持筛选和分页）
+export const getContents = (params = {}) => {
+  return service.get('/content/contents', { params })
+}
+
+// 创建排期
+export const createSchedule = (data) => {
+  return service.post('/schedule/create', data)
+}
+
+// 查询排期列表
+export const getScheduleList = (params = {}) => {
+  return service.get('/schedule/list', { params })
+}
+
+// 更新排期状态（包含发布备注）
+export const updateSchedule = (data) => {
+  return service.post('/schedule/update', data)
+}
+
+// 批量创建排期
+export const batchCreateSchedule = (data) => {
+  return service.post('/schedule/batch-create', data)
+}
+
+// 批量更新排期
+export const batchUpdateSchedule = (data) => {
+  return service.post('/schedule/batch-update', data)
+}
+
 // 删除内容（如需使用）
 export const deleteContent = (contentId) => {
   return service.post('/content/delete', { content_id: contentId })
