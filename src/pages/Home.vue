@@ -24,6 +24,12 @@
             </el-icon>
             用户列表
           </el-button>
+          <el-button size="small" @click="navigateToSchedule" class="text-sm rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100">
+            <el-icon class="mr-2">
+              <Calendar />
+            </el-icon>
+            排期管理
+          </el-button>
         </div>
       </div>
       <p class="text-xs text-gray-500 mx-4 my-2">创作历史</p>
@@ -178,7 +184,8 @@ import {
   DocumentCopy,
   Refresh,
   Promotion,
-  UserFilled
+  UserFilled,
+  Calendar
 } from '@element-plus/icons-vue'
 import { generateContent, generateContentStream, getSessions, getSessionDetail } from '@/api/content' // 导入getSessions、getSessionDetail和generateContentStream
 import { validateAdmin } from '@/api/admin'
@@ -238,6 +245,10 @@ const navigateToContentList = () => {
 // 跳转到用户列表页
 const navigateToUserList = () => {
   router.push('/admin/user-list')
+}
+// 跳转到排期管理页
+const navigateToSchedule = () => {
+  router.push('/schedule')
 }
 
 // 验证管理员身份

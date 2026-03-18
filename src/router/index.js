@@ -8,6 +8,7 @@ import Register from '@/pages/Register.vue'
 import Home from '@/pages/Home.vue'
 import ContentList from '@/pages/ContentList.vue'
 import UserList from '@/pages/admin/UserList.vue'
+import Schedule from '@/pages/Schedule.vue'
 
 // 路由守卫：验证登录状态（未登录跳登录页）
 const requireAuth = (to, from, next) => {
@@ -54,6 +55,7 @@ const routes = [
   { path: '/register', component: Register }, // 注册页
   { path: '/home', component: Home, beforeEnter: requireAuth }, // 内容生成页（需登录）
   { path: '/content-list', component: ContentList, beforeEnter: requireAuth }, // 我的内容列表（需登录）
+  { path: '/schedule', component: Schedule, beforeEnter: requireAuth }, // 排期管理（需登录）
   { path: '/admin/user-list', component: UserList, beforeEnter: requireAdmin } // 管理员用户列表（需登录）
 ]
 
