@@ -5,15 +5,12 @@
     <el-card class="filter-card">
       <el-form :inline="true" :model="filterForm" class="filter-form">
         <el-form-item label="平台">
-          <el-select v-model="filterForm.platform" placeholder="全部平台" clearable style="width: 120px">
-            <el-option label="小红书" value="小红书" />
-            <el-option label="微博" value="微博" />
-            <el-option label="朋友圈" value="朋友圈" />
-            <el-option label="抖音" value="抖音" />
+          <el-select v-model="filterForm.platform" placeholder="全部平台" clearable multiple collapse-tags collapse-tags-tooltip style="width: 150px">
+            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="会话">
-          <el-select v-model="filterForm.session_id" placeholder="全部会话" clearable style="width: 180px">
+          <el-select v-model="filterForm.session_id" placeholder="全部会话" clearable multiple collapse-tags collapse-tags-tooltip style="width: 200px">
             <el-option v-for="session in sessionList" :key="session.session_id" :label="session.session_title" :value="session.session_id" />
           </el-select>
         </el-form-item>
@@ -74,12 +71,8 @@
         <el-table-column prop="create_time" label="创建时间" width="200" align="center" />
         <el-table-column label="操作" width="200" align="center">
           <template #default="scope">
-            <el-button size="small" class="bg-blue-500 text-white hover:bg-blue-600" @click.stop="handleView(scope.row)">
-              查看详情
-            </el-button>
-            <el-button size="small" class="bg-green-500 text-white hover:bg-green-600" @click.stop="handleCreateSchedule(scope.row)">
-              创建排期
-            </el-button>
+            <el-button type="primary" link @click.stop="handleView(scope.row)">查看详情</el-button>
+            <el-button type="success" link @click.stop="handleCreateSchedule(scope.row)">创建排期</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -110,10 +103,7 @@
         <el-form :model="scheduleForm" label-width="100px">
           <el-form-item label="发布平台">
             <el-select v-model="scheduleForm.platform" placeholder="请选择发布平台" style="width: 100%">
-              <el-option label="小红书" value="小红书" />
-              <el-option label="朋友圈" value="朋友圈" />
-              <el-option label="微博" value="微博" />
-              <el-option label="抖音" value="抖音" />
+              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="发布时间">
@@ -150,10 +140,7 @@
         <el-form :model="batchScheduleForm" label-width="100px" class="batch-form">
           <el-form-item label="统一平台">
             <el-select v-model="batchScheduleForm.platform" placeholder="请选择发布平台" style="width: 100%" @change="handlePlatformChange">
-              <el-option label="小红书" value="小红书" />
-              <el-option label="朋友圈" value="朋友圈" />
-              <el-option label="微博" value="微博" />
-              <el-option label="抖音" value="抖音" />
+              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="统一时间">
@@ -187,10 +174,7 @@
                 style="width: 100px"
                 size="small"
               >
-                <el-option label="小红书" value="小红书" />
-                <el-option label="朋友圈" value="朋友圈" />
-                <el-option label="微博" value="微博" />
-                <el-option label="抖音" value="抖音" />
+                <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
@@ -240,6 +224,13 @@ const dialogVisible = ref(false)
 const currentContent = ref('')
 const dateRange = ref([])
 
+const platformOptions = [
+  { label: '小红书', value: '小红书' },
+  { label: '微博', value: '微博' },
+  { label: '朋友圈', value: '朋友圈' },
+  { label: '抖音', value: '抖音' }
+]
+
 const selectedContents = ref([])
 
 const scheduleDialogVisible = ref(false)
@@ -263,8 +254,8 @@ const batchScheduleForm = reactive({
 })
 
 const filterForm = reactive({
-  platform: '',
-  session_id: '',
+  platform: [],
+  session_id: [],
   title: '',
   content: ''
 })
@@ -294,10 +285,10 @@ const loadContentList = async () => {
       page_size: pagination.page_size
     }
 
-    if (filterForm.platform) {
+    if (filterForm.platform && filterForm.platform.length > 0) {
       params.platform = filterForm.platform
     }
-    if (filterForm.session_id) {
+    if (filterForm.session_id && filterForm.session_id.length > 0) {
       params.session_id = filterForm.session_id
     }
     if (filterForm.title) {
@@ -335,8 +326,8 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-  filterForm.platform = ''
-  filterForm.session_id = ''
+  filterForm.platform = []
+  filterForm.session_id = []
   filterForm.title = ''
   filterForm.content = ''
   dateRange.value = []

@@ -4,10 +4,13 @@ import { ElMessage } from 'element-plus'
 
 // 创建Axios实例
 const service = axios.create({
-  baseURL: '/api', // 代理前缀，对应vite.config.js的proxy
-  timeout: 60000, // 超时时间60秒（适配AI接口）
+  baseURL: '/api',
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json;charset=utf-8'
+  },
+  paramsSerializer: {
+    indexes: null
   }
 })
 

@@ -5,18 +5,13 @@
     <el-card class="filter-card">
       <el-form :inline="true" :model="filterForm" class="filter-form">
         <el-form-item label="状态">
-          <el-select v-model="filterForm.status" placeholder="全部状态" clearable style="width: 120px">
-            <el-option label="待发布" value="pending" />
-            <el-option label="已发布" value="published" />
-            <el-option label="失败" value="failed" />
+          <el-select v-model="filterForm.status" placeholder="全部状态" clearable multiple collapse-tags collapse-tags-tooltip style="width: 150px">
+            <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="平台">
-          <el-select v-model="filterForm.platform" placeholder="全部平台" clearable style="width: 120px">
-            <el-option label="小红书" value="小红书" />
-            <el-option label="微博" value="微博" />
-            <el-option label="朋友圈" value="朋友圈" />
-            <el-option label="抖音" value="抖音" />
+          <el-select v-model="filterForm.platform" placeholder="全部平台" clearable multiple collapse-tags collapse-tags-tooltip style="width: 150px">
+            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="发布时间">
@@ -85,8 +80,8 @@
         <el-table-column prop="publish_time" label="发布时间" width="160" align="center" />
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="scope">
-            <el-tag :class="getStatusClass(scope.row.status, scope.row.publish_time)">
-              {{ getStatusText(scope.row.status, scope.row.publish_time) }}
+            <el-tag :class="getStatusClass(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -102,29 +97,14 @@
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="scope">
             <template v-if="scope.row.status === 'pending'">
-              <template v-if="!isExpired(scope.row.publish_time)">
-                <el-button size="small" class="bg-green-500 text-white hover:bg-green-600" @click="handleMarkPublished(scope.row)">
-                  标记已发布
-                </el-button>
-                <el-button size="small" class="bg-red-500 text-white hover:bg-red-600" @click="handleCancelSchedule(scope.row)">
-                  取消排期
-                </el-button>
-              </template>
-              <template v-else>
-                <el-button size="small" class="bg-blue-500 text-white hover:bg-blue-600" @click="handleReschedule(scope.row)">
-                  重新排期
-                </el-button>
-              </template>
+              <el-button type="primary" link @click="handleMarkPublished(scope.row)">标记已发布</el-button>
+              <el-button type="danger" link @click="handleCancelSchedule(scope.row)">取消排期</el-button>
             </template>
             <template v-else-if="scope.row.status === 'published'">
-              <el-button size="small" class="bg-blue-500 text-white hover:bg-blue-600" @click="handleEditPublishNote(scope.row)">
-                填写结果
-              </el-button>
+              <el-button type="primary" link @click="handleEditPublishNote(scope.row)">填写结果</el-button>
             </template>
-            <template v-else-if="scope.row.status === 'failed'">
-              <el-button size="small" class="bg-blue-500 text-white hover:bg-blue-600" @click="handleReschedule(scope.row)">
-                重新排期
-              </el-button>
+            <template v-else-if="scope.row.status === 'expired' || scope.row.status === 'failed'">
+              <el-button type="primary" link @click="handleReschedule(scope.row)">重新排期</el-button>
             </template>
           </template>
         </el-table-column>
@@ -165,10 +145,7 @@
         <el-form :model="rescheduleForm" label-width="100px">
           <el-form-item label="发布平台">
             <el-select v-model="rescheduleForm.platform" placeholder="请选择发布平台" style="width: 100%">
-              <el-option label="小红书" value="小红书" />
-              <el-option label="朋友圈" value="朋友圈" />
-              <el-option label="微博" value="微博" />
-              <el-option label="抖音" value="抖音" />
+              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="发布时间">
@@ -227,10 +204,7 @@
         <el-form :model="batchUpdateForm" label-width="100px" class="batch-form">
           <el-form-item label="统一平台">
             <el-select v-model="batchUpdateForm.platform" placeholder="不修改" clearable style="width: 100%" @change="handleBatchPlatformChange">
-              <el-option label="小红书" value="小红书" />
-              <el-option label="朋友圈" value="朋友圈" />
-              <el-option label="微博" value="微博" />
-              <el-option label="抖音" value="抖音" />
+              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="统一时间">
@@ -264,10 +238,7 @@
                 style="width: 100px"
                 size="small"
               >
-                <el-option label="小红书" value="小红书" />
-                <el-option label="朋友圈" value="朋友圈" />
-                <el-option label="微博" value="微博" />
-                <el-option label="抖音" value="抖音" />
+                <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
@@ -315,6 +286,19 @@ const scheduleList = ref([])
 const dateRange = ref([])
 const selectedSchedules = ref([])
 
+const platformOptions = [
+  { label: '小红书', value: '小红书' },
+  { label: '微博', value: '微博' },
+  { label: '朋友圈', value: '朋友圈' },
+  { label: '抖音', value: '抖音' }
+]
+const statusOptions = [
+  { label: '待发布', value: 'pending' },
+  { label: '已发布', value: 'published' },
+  { label: '已过期', value: 'expired' },
+  { label: '失败', value: 'failed' }
+]
+
 const publishNoteDialogVisible = ref(false)
 const publishNoteLoading = ref(false)
 const currentSchedule = ref(null)
@@ -346,8 +330,8 @@ const batchUpdateForm = reactive({
 })
 
 const filterForm = reactive({
-  status: '',
-  platform: '',
+  status: [],
+  platform: [],
   content_title: '',
   schedule_note: '',
   publish_note: ''
@@ -367,10 +351,10 @@ const loadScheduleList = async () => {
       page_size: pagination.page_size
     }
 
-    if (filterForm.status) {
+    if (filterForm.status && filterForm.status.length > 0) {
       params.status = filterForm.status
     }
-    if (filterForm.platform) {
+    if (filterForm.platform && filterForm.platform.length > 0) {
       params.platform = filterForm.platform
     }
     if (filterForm.content_title) {
@@ -411,8 +395,8 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-  filterForm.status = ''
-  filterForm.platform = ''
+  filterForm.status = []
+  filterForm.platform = []
   filterForm.content_title = ''
   filterForm.schedule_note = ''
   filterForm.publish_note = ''
@@ -436,31 +420,21 @@ const handleSelectionChange = (selection) => {
   selectedSchedules.value = selection
 }
 
-const isExpired = (publishTime) => {
-  if (!publishTime) return false
-  const publishDate = new Date(publishTime.replace(/-/g, '/'))
-  return publishDate < new Date()
-}
-
-const getStatusText = (status, publishTime) => {
-  if (status === 'pending' && isExpired(publishTime)) {
-    return '已过期'
-  }
+const getStatusText = (status) => {
   const statusMap = {
     pending: '待发布',
     published: '已发布',
+    expired: '已过期',
     failed: '失败'
   }
   return statusMap[status] || status
 }
 
-const getStatusClass = (status, publishTime) => {
-  if (status === 'pending' && isExpired(publishTime)) {
-    return 'bg-gray-50 text-gray-600 border-gray-200'
-  }
+const getStatusClass = (status) => {
   const classMap = {
     pending: 'bg-yellow-50 text-yellow-600 border-yellow-200',
     published: 'bg-green-50 text-green-600 border-green-200',
+    expired: 'bg-gray-50 text-gray-600 border-gray-200',
     failed: 'bg-red-50 text-red-600 border-red-200'
   }
   return classMap[status] || ''
