@@ -142,6 +142,72 @@
       <!-- 底部输入区 -->
       <div class="p-4 px-6 bg-white">
         <div class="max-w-[1000px] mx-auto">
+          <!-- 人设配置折叠面板 -->
+          <el-collapse v-model="personaCollapseActive" class="mb-4 border-none">
+            <el-collapse-item name="persona">
+              <template #title>
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <el-icon><UserFilled /></el-icon>
+                  <span>人设配置</span>
+                  <el-tag v-if="personaForm.domain || personaForm.style || personaForm.tone" size="small" type="success" class="ml-2">已配置</el-tag>
+                </div>
+              </template>
+              
+              <div class="p-4 bg-gray-50 rounded-lg">
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                  <!-- 领域 -->
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 mb-2">领域</div>
+                    <el-select v-model="personaForm.domain" placeholder="请选择领域" class="w-full">
+                      <el-option 
+                        v-for="item in personaOptions.domain" 
+                        :key="item.value" 
+                        :label="item.label" 
+                        :value="item.value" 
+                      />
+                    </el-select>
+                  </div>
+                  
+                  <!-- 风格 -->
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 mb-2">风格</div>
+                    <el-select v-model="personaForm.style" placeholder="请选择风格" class="w-full">
+                      <el-option 
+                        v-for="item in personaOptions.style" 
+                        :key="item.value" 
+                        :label="item.label" 
+                        :value="item.value" 
+                      />
+                    </el-select>
+                  </div>
+                  
+                  <!-- 语气 -->
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 mb-2">语气</div>
+                    <el-select v-model="personaForm.tone" placeholder="请选择语气" class="w-full">
+                      <el-option 
+                        v-for="item in personaOptions.tone" 
+                        :key="item.value" 
+                        :label="item.label" 
+                        :value="item.value" 
+                      />
+                    </el-select>
+                  </div>
+                </div>
+                
+                <!-- 按钮组 -->
+                <div class="flex gap-3">
+                  <el-button type="primary" @click="handleSavePersona" :loading="savingPersona">
+                    保存为我的人设
+                  </el-button>
+                  <el-button @click="handleResetPersona">
+                    重置为默认
+                  </el-button>
+                </div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+          
           <!-- 悬浮风格输入框 -->
           <div class="input-container rounded-[20px] border border-gray-200 hover:border-gray-300 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all duration-200 bg-white p-4">
             <el-input v-model="userInput" type="textarea" :rows="3" placeholder="输入你的创作需求（例如：春日野餐、职场穿搭、节日祝福）..."
@@ -187,9 +253,11 @@ import {
   UserFilled,
   Calendar
 } from '@element-plus/icons-vue'
-import { generateContent, generateContentStream, getSessions, getSessionDetail } from '@/api/content' // 导入getSessions、getSessionDetail和generateContentStream
+import { generateContent, generateContentStream, getSessions, getSessionDetail } from '@/api/content'
 import { validateAdmin } from '@/api/admin'
 import { removeToken } from '@/utils/auth'
+import { getPersonaInfo, savePersona } from '@/api/persona'
+import { personaOptions } from '@/data/personaOptions'
 
 const router = useRouter()
 const messagesRef = ref(null)
@@ -204,6 +272,13 @@ const currentMessages = ref([]) // 当前显示的对话消息
 const loadingHistory = ref(false) // 加载历史的loading状态
 const sessions = ref([]) // 存储会话列表
 const isAdmin = ref(false) // 管理员状态
+const personaCollapseActive = ref([]) // 人设配置折叠面板状态
+const personaForm = reactive({
+  domain: '',
+  style: '',
+  tone: ''
+})
+const savingPersona = ref(false)
 let streamController = null // 流式请求控制器
 let typeWriterTimeout = null // 打字机效果定时器
 
@@ -254,24 +329,73 @@ const navigateToSchedule = () => {
 // 验证管理员身份
 const checkAdminStatus = async () => {
   try {
-    const response = await validateAdmin(false) // 传递raiseError=false，非管理员时不抛出错误
+    const response = await validateAdmin(false)
     if (response.code === 200 && response.admin_info.is_admin) {
       isAdmin.value = true
     } else {
       isAdmin.value = false
     }
   } catch (error) {
-    // 非管理员或验证失败，不显示用户列表按钮
     isAdmin.value = false
   }
 }
 
+// 加载人设配置
+const loadPersona = async () => {
+  try {
+    const res = await getPersonaInfo()
+    if (res.code === 200 && res.persona) {
+      personaForm.domain = res.persona.domain || ''
+      personaForm.style = res.persona.style || ''
+      personaForm.tone = res.persona.tone || ''
+    }
+  } catch (error) {
+    console.error('加载人设配置失败：', error)
+  }
+}
+
+// 保存人设配置
+const handleSavePersona = async () => {
+  if (!personaForm.domain || !personaForm.style || !personaForm.tone) {
+    ElMessage.warning('请完整配置人设信息')
+    return
+  }
+  
+  savingPersona.value = true
+  try {
+    const res = await savePersona({
+      domain: personaForm.domain,
+      style: personaForm.style,
+      tone: personaForm.tone,
+      is_default: 1
+    })
+    
+    if (res.code === 200) {
+      ElMessage.success('保存人设配置成功')
+    } else {
+      ElMessage.error(res.msg || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存人设配置失败：', error)
+    ElMessage.error('保存失败，请稍后重试')
+  } finally {
+    savingPersona.value = false
+  }
+}
+
+// 重置人设配置
+const handleResetPersona = () => {
+  personaForm.domain = ''
+  personaForm.style = ''
+  personaForm.tone = ''
+  ElMessage.success('已重置为默认')
+}
+
 // 页面加载时初始化
 onMounted(() => {
-  // 优先加载后端历史对话
   loadHistoryFromBackend()
-  // 检查管理员身份
   checkAdminStatus()
+  loadPersona()
   scrollToBottom()
 })
 
@@ -442,7 +566,12 @@ const handleSend = async () => {
     prompt: inputPrompt,
     platform: currentPlatform.value,
     title: inputPrompt,
-    session_id: sessionId
+    session_id: sessionId,
+    persona: {
+      domain: personaForm.domain,
+      style: personaForm.style,
+      tone: personaForm.tone
+    }
   }
 
   let fullContent = ''
