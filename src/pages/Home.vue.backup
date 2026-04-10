@@ -1,0 +1,900 @@
+<template>
+  <div class="flex h-screen bg-gray-100">
+    <!-- 左侧：历史记录栏 -->
+    <div class="w-[300px] bg-gray-50 border-r border-gray-200 flex flex-col shadow-sm">
+      <div class="p-4 flex flex-col gap-1">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">🤖 社交内容生成助手</h3>
+        
+        <div class="flex flex-col justify-end items-end gap-2">
+          <el-button size="small" @click="startNewChat" class="text-sm bg-blue-50 border-blue-100 border-1  hover:bg-blue-100 hover:border-blue-200 text-blue-400 font-bold w-full h-10 rounded-lg">
+            <el-icon class="mr-2">
+              <Plus />
+            </el-icon>
+            新创作
+          </el-button>
+          <el-button size="small" @click="navigateToContentList" class="text-sm rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100">
+            <el-icon class="mr-2">
+              <Document />
+            </el-icon>
+            历史管理
+          </el-button>
+          <el-button v-if="isAdmin" size="small" @click="navigateToUserList" class="text-sm rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100">
+            <el-icon class="mr-2">
+              <UserFilled />
+            </el-icon>
+            用户列表
+          </el-button>
+          <el-button size="small" @click="navigateToSchedule" class="text-sm rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100">
+            <el-icon class="mr-2">
+              <Calendar />
+            </el-icon>
+            排期管理
+          </el-button>
+        </div>
+      </div>
+      
+      <!-- Tabs切换 -->
+      <div class="px-4 flex-1 overflow-hidden">
+        <el-tabs v-model="leftTabActive" class="left-tabs h-full">
+          <el-tab-pane label="历史会话" name="history">
+            <div class="overflow-y-auto p-2 pr-4 bg-gray-50" style="max-height: calc(100vh - 320px);">
+              <!-- 加载状态提示 -->
+              <div v-if="loadingHistory" class="p-4">
+                <el-skeleton :rows="3" animated />
+              </div>
+              <!-- 无历史记录提示 -->
+              <div v-else-if="chatHistory.length === 0" class="p-4">
+                <el-empty description="暂无创作历史，开始你的第一次创作吧～" />
+              </div>
+              <!-- 历史列表 -->
+              <div v-else v-for="(chat, index) in chatHistory" :key="chat.id || index" 
+                   class="p-3 rounded-lg mb-2 cursor-pointer transition-all duration-200 bg-gray-50 hover:bg-gray-100 hover:translate-x-1"
+                   :class="{'bg-white': currentChatIndex === index}" 
+                   @click="switchChat(index)">
+                <div class="flex items-center gap-2 text-sm font-medium mb-1" :class="{'font-bold': currentChatIndex === index}">
+                  <el-icon class="text-gray-500">
+                    <Document />
+                  </el-icon>
+                  {{ chat.title }}
+                </div>
+                <div class="text-xs text-gray-500" >{{ chat.time }}</div>
+              </div>
+            </div>
+          </el-tab-pane>
+          
+          <el-tab-pane label="热点浏览" name="hotspot">
+            <div class="flex flex-col" style="max-height: calc(100vh - 320px);">
+              <!-- 平台筛选 -->
+              <div class="mb-3">
+                <el-select v-model="hotspotPlatform" placeholder="全部平台" size="small" clearable class="w-full">
+                  <el-option label="全部" value="" />
+                  <el-option label="微博" value="微博" />
+                  <el-option label="小红书" value="小红书" />
+                  <el-option label="抖音" value="抖音" />
+                </el-select>
+              </div>
+              
+              <!-- 搜索框 -->
+              <div class="mb-3">
+                <el-input v-model="hotspotSearchKeyword" placeholder="搜索热点" size="small" clearable>
+                  <template #prefix>
+                    <el-icon><Search /></el-icon>
+                  </template>
+                </el-input>
+              </div>
+              
+              <!-- 刷新按钮 -->
+              <div class="mb-3">
+                <el-button size="small" @click="handleRefreshHotspots" :loading="hotspotLoading" class="w-full">
+                  <el-icon class="mr-1"><Refresh /></el-icon>
+                  刷新热点
+                </el-button>
+              </div>
+              
+              <!-- 热点列表 -->
+              <div class="flex-1 overflow-y-auto">
+                <div v-if="hotspotLoading" class="p-4">
+                  <el-skeleton :rows="3" animated />
+                </div>
+                <div v-else-if="filteredHotspots.length === 0" class="p-4">
+                  <el-empty description="暂无热点数据" />
+                </div>
+                <div v-else v-for="hotspot in filteredHotspots" :key="hotspot.id" 
+                     class="p-3 rounded-lg mb-2 bg-white border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all duration-200">
+                  <div class="flex items-start justify-between mb-2">
+                    <div class="flex-1">
+                      <div class="text-sm font-medium text-gray-800 mb-1 line-clamp-2">{{ hotspot.title }}</div>
+                      <div class="text-xs text-gray-500 mb-2">{{ hotspot.keywords }}</div>
+                    </div>
+                    <el-tag :type="getHeatTag(hotspot.heat_value).type" size="small" class="ml-2 flex-shrink-0">
+                      {{ getHeatTag(hotspot.heat_value).text }}
+                    </el-tag>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="text-xs text-gray-400">{{ hotspot.platform }}</div>
+                    <el-button size="small" type="primary" @click="useHotspot(hotspot)" class="text-xs">
+                      一键使用
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+      
+      <div class="p-4">
+        <el-button @click="handleLogout" class="rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100 ">
+          退出登录
+        </el-button>
+      </div>
+    </div>
+
+    <!-- 右侧：对话主界面 -->
+    <div class="flex-1 flex flex-col bg-white">
+      <!-- 顶部栏 -->
+      <div class="p-3 px-6 bg-white border-b border-gray-200 flex flex-col justify-center items-center">
+        <div class="text-base font-medium text-gray-800">{{ currentChatIndex >= 0 && chatHistory.length > 0 ? chatHistory[currentChatIndex].title : '社交内容创作助手' }}</div>
+        <div class="text-xs text-gray-500">内容由ai生成</div>
+      </div>
+
+      <!-- 对话消息区 -->
+      <div class="flex-1 overflow-y-auto p-6 bg-white" ref="messagesRef">
+        <div class="max-w-3xl mx-auto">
+          <div v-if="currentMessages.length === 0" class="text-center py-20 px-5">
+            <div class="text-gray-500 mb-5">
+              <el-icon :size="80">
+                <MagicStick />
+              </el-icon>
+            </div>
+            <h2 class="text-2xl font-medium text-gray-800 mb-2">开始你的创作之旅</h2>
+            <p class="text-gray-600 mb-7">输入你的创作需求，我会为你生成适配平台的优质内容</p>
+            <div class="flex flex-wrap gap-2 justify-center">
+              <el-tag v-for="prompt in quickPrompts" :key="prompt" class="cursor-pointer transition-all duration-200 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 hover:text-gray-800 hover:-translate-y-0.5" @click="useQuickPrompt(prompt)">
+                {{ prompt }}
+              </el-tag>
+            </div>
+          </div>
+
+          <div v-for="(msg, index) in currentMessages" :key="index" class="flex gap-3 mb-6" :class="{'flex-row-reverse': msg.role === 'user'}">
+            <div class="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-base flex-shrink-0" :class="{'bg-gray-300 text-gray-700': msg.role === 'user'}">
+              <el-icon v-if="msg.role === 'user'">
+                <User />
+              </el-icon>
+              <el-icon v-else>
+                <ChatDotRound />
+              </el-icon>
+            </div>
+            <div class="max-w-[80%]">
+              <div class="p-4 rounded-[12px] mb-1" :class="{'bg-gray-200': msg.role === 'user', 'bg-white': msg.role === 'ai'}">
+                <!-- 用户消息 -->
+                <template v-if="msg.role === 'user'">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 text-base leading-relaxed text-gray-800">{{ msg.content }}</div>
+                    <el-tag size="small" class="bg-gray-300 text-gray-700 border-none">{{ msg.platform }}</el-tag>
+                  </div>
+                </template>
+                <!-- AI消息（打字机效果） -->
+                <template v-else>
+                  <div v-if="msg.loading" class="flex gap-1.5 py-2">
+                    <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style="animation-delay: -0.32s"></span>
+                    <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style="animation-delay: -0.16s"></span>
+                    <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
+                  </div>
+                  <div v-else class="text-base leading-relaxed text-gray-800">
+                    <div class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
+                    <div class="flex gap-3 pt-2 border-t border-gray-100">
+                      <el-button size="small" link @click="copyContent(msg.content)" class="text-sm text-gray-600 hover:text-gray-800">
+                        <el-icon>
+                          <DocumentCopy />
+                        </el-icon>
+                        复制内容
+                      </el-button>
+                      <el-button size="small" link @click="regenerateContent(msg)" class="text-sm text-gray-600 hover:text-gray-800">
+                        <el-icon>
+                          <Refresh />
+                        </el-icon>
+                        重新生成
+                      </el-button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div class="text-xs text-gray-500 px-1">{{ msg.time }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部输入区 -->
+      <div class="p-4 px-6 bg-white">
+        <div class="max-w-[1000px] mx-auto">
+          <!-- 人设配置折叠面板 -->
+          <el-collapse v-model="personaCollapseActive" class="mb-4 border-none">
+            <el-collapse-item name="persona">
+              <template #title>
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <el-icon><UserFilled /></el-icon>
+                  <span>人设配置</span>
+                  <el-tag v-if="personaForm.domain || personaForm.style || personaForm.tone" size="small" type="success" class="ml-2">已配置</el-tag>
+                </div>
+              </template>
+              
+              <div class="p-4 bg-gray-50 rounded-lg">
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                  <!-- 领域 -->
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 mb-2">领域</div>
+                    <el-select v-model="personaForm.domain" placeholder="请选择领域" class="w-full">
+                      <el-option 
+                        v-for="item in personaOptions.domain" 
+                        :key="item.value" 
+                        :label="item.label" 
+                        :value="item.value" 
+                      />
+                    </el-select>
+                  </div>
+                  
+                  <!-- 风格 -->
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 mb-2">风格</div>
+                    <el-select v-model="personaForm.style" placeholder="请选择风格" class="w-full">
+                      <el-option 
+                        v-for="item in personaOptions.style" 
+                        :key="item.value" 
+                        :label="item.label" 
+                        :value="item.value" 
+                      />
+                    </el-select>
+                  </div>
+                  
+                  <!-- 语气 -->
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 mb-2">语气</div>
+                    <el-select v-model="personaForm.tone" placeholder="请选择语气" class="w-full">
+                      <el-option 
+                        v-for="item in personaOptions.tone" 
+                        :key="item.value" 
+                        :label="item.label" 
+                        :value="item.value" 
+                      />
+                    </el-select>
+                  </div>
+                </div>
+                
+                <!-- 按钮组 -->
+                <div class="flex gap-3">
+                  <el-button type="primary" @click="handleSavePersona" :loading="savingPersona">
+                    保存为我的人设
+                  </el-button>
+                  <el-button @click="handleResetPersona">
+                    重置为默认
+                  </el-button>
+                </div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+          
+          <!-- 悬浮风格输入框 -->
+          <div class="input-container rounded-[20px] border border-gray-200 hover:border-gray-300 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400 transition-all duration-200 bg-white p-4">
+            <el-input v-model="userInput" type="textarea" :rows="3" placeholder="输入你的创作需求（例如：春日野餐、职场穿搭、节日祝福）..."
+              @keydown.enter.ctrl="handleSend" />
+            <div class="flex justify-between items-center gap-3 mt-3">
+              <span class="text-xs text-gray-500">Ctrl+Enter 发送</span>
+              <div class="flex items-center gap-3">
+                <span class="text-sm text-gray-600 font-medium">适配平台：</span>
+                <el-select v-model="currentPlatform" placeholder="选择平台" size="small" style="width:100px;">
+                  <el-option label="小红书" value="小红书" />
+                  <el-option label="微博" value="微博" />
+                  <el-option label="朋友圈" value="朋友圈" />
+                  <el-option label="抖音" value="抖音" />
+                </el-select>
+                <el-button size="large" :loading="loading" @click="handleSend" class="rounded-full px-7 font-medium bg-blue-500 hover:bg-blue-600 text-white border-none transition-all duration-200">
+                  <el-icon>
+                    <Promotion />
+                  </el-icon>
+                  生成内容
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Plus,
+  Document,
+  ChatDotRound,
+  MagicStick,
+  User,
+  DocumentCopy,
+  Refresh,
+  Promotion,
+  UserFilled,
+  Calendar,
+  Search
+} from '@element-plus/icons-vue'
+import { generateContent, generateContentStream, getSessions, getSessionDetail } from '@/api/content'
+import { validateAdmin } from '@/api/admin'
+import { removeToken } from '@/utils/auth'
+import { getPersonaInfo, savePersona } from '@/api/persona'
+import { getHotspotList, refreshHotspots } from '@/api/hotspot'
+import { personaOptions } from '@/data/personaOptions'
+
+const router = useRouter()
+const messagesRef = ref(null)
+
+// 状态管理
+const currentPlatform = ref('小红书')
+const userInput = ref('')
+const loading = ref(false)
+const currentChatIndex = ref(-1)
+const chatHistory = ref([]) // 存储后端返回的历史对话
+const currentMessages = ref([]) // 当前显示的对话消息
+const loadingHistory = ref(false) // 加载历史的loading状态
+const sessions = ref([]) // 存储会话列表
+const isAdmin = ref(false) // 管理员状态
+const personaCollapseActive = ref([]) // 人设配置折叠面板状态
+const personaForm = reactive({
+  domain: '',
+  style: '',
+  tone: ''
+})
+const savingPersona = ref(false)
+const leftTabActive = ref('history')
+const hotspotList = ref([])
+const hotspotLoading = ref(false)
+const hotspotPlatform = ref('')
+const hotspotSearchKeyword = ref('')
+let streamController = null // 流式请求控制器
+let typeWriterTimeout = null // 打字机效果定时器
+
+// 快捷提示词
+const quickPrompts = [
+  '春日野餐文案',
+  '职场穿搭分享',
+  '生日祝福文案',
+  '周末出游攻略',
+  '美食探店推荐'
+]
+
+// 滚动到底部
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (messagesRef.value) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    }
+  })
+}
+
+// 格式化时间（适配后端返回的时间格式）
+const formatTime = (timeStr = '') => {
+  if (!timeStr) {
+    const now = new Date()
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+  }
+  // 转换后端返回的 "2026-03-03 13:47:57" 为 "13:47"
+  return timeStr.split(' ')[1]?.substring(0, 5) || timeStr
+}
+
+// 全局定时器变量
+let typeWriterTimer = null
+
+// 跳转到历史管理页
+const navigateToContentList = () => {
+  router.push('/content-list')
+}
+// 跳转到用户列表页
+const navigateToUserList = () => {
+  router.push('/admin/user-list')
+}
+// 跳转到排期管理页
+const navigateToSchedule = () => {
+  router.push('/schedule')
+}
+
+// 验证管理员身份
+const checkAdminStatus = async () => {
+  try {
+    const response = await validateAdmin(false)
+    if (response.code === 200 && response.admin_info.is_admin) {
+      isAdmin.value = true
+    } else {
+      isAdmin.value = false
+    }
+  } catch (error) {
+    isAdmin.value = false
+  }
+}
+
+// 加载人设配置
+const loadPersona = async () => {
+  try {
+    const res = await getPersonaInfo()
+    if (res.code === 200 && res.persona) {
+      personaForm.domain = res.persona.domain || ''
+      personaForm.style = res.persona.style || ''
+      personaForm.tone = res.persona.tone || ''
+    }
+  } catch (error) {
+    console.error('加载人设配置失败：', error)
+  }
+}
+
+// 保存人设配置
+const handleSavePersona = async () => {
+  if (!personaForm.domain || !personaForm.style || !personaForm.tone) {
+    ElMessage.warning('请完整配置人设信息')
+    return
+  }
+  
+  savingPersona.value = true
+  try {
+    const res = await savePersona({
+      domain: personaForm.domain,
+      style: personaForm.style,
+      tone: personaForm.tone,
+      is_default: 1
+    })
+    
+    if (res.code === 200) {
+      ElMessage.success('保存人设配置成功')
+    } else {
+      ElMessage.error(res.msg || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存人设配置失败：', error)
+    ElMessage.error('保存失败，请稍后重试')
+  } finally {
+    savingPersona.value = false
+  }
+}
+
+// 重置人设配置
+const handleResetPersona = () => {
+  personaForm.domain = ''
+  personaForm.style = ''
+  personaForm.tone = ''
+  ElMessage.success('已重置为默认')
+}
+
+// 加载热点列表
+const loadHotspots = async () => {
+  hotspotLoading.value = true
+  try {
+    const params = {
+      limit: 50
+    }
+    if (hotspotPlatform.value) {
+      params.platform = hotspotPlatform.value
+    }
+    
+    const res = await getHotspotList(params)
+    if (res.code === 200 && res.data) {
+      hotspotList.value = res.data
+    } else {
+      hotspotList.value = []
+    }
+  } catch (error) {
+    console.error('加载热点列表失败：', error)
+    ElMessage.error('加载热点列表失败')
+    hotspotList.value = []
+  } finally {
+    hotspotLoading.value = false
+  }
+}
+
+// 刷新热点数据
+const handleRefreshHotspots = async () => {
+  try {
+    const res = await refreshHotspots()
+    if (res.code === 200) {
+      ElMessage.success('刷新热点数据成功')
+      await loadHotspots()
+    } else {
+      ElMessage.error(res.msg || '刷新失败')
+    }
+  } catch (error) {
+    console.error('刷新热点数据失败：', error)
+    ElMessage.error('刷新失败，请稍后重试')
+  }
+}
+
+// 一键使用热点
+const useHotspot = (hotspot) => {
+  const content = `基于热点：【${hotspot.title}】
+关键词：${hotspot.keywords}
+请生成一篇适合${personaForm.domain || '社交平台'}的社交文案`
+  userInput.value = content
+  ElMessage.success('已填入输入框')
+}
+
+// 获取热度标签
+const getHeatTag = (heatValue) => {
+  if (heatValue >= 1000000) {
+    return { text: '爆', type: 'danger' }
+  } else if (heatValue >= 500000) {
+    return { text: '热', type: 'warning' }
+  } else {
+    return { text: '新', type: 'success' }
+  }
+}
+
+// 过滤热点列表
+const filteredHotspots = computed(() => {
+  if (!hotspotSearchKeyword.value) {
+    return hotspotList.value
+  }
+  return hotspotList.value.filter(hotspot => 
+    hotspot.title.includes(hotspotSearchKeyword.value) ||
+    hotspot.keywords.includes(hotspotSearchKeyword.value)
+  )
+})
+
+// 页面加载时初始化
+onMounted(() => {
+  loadHistoryFromBackend()
+  checkAdminStatus()
+  loadPersona()
+  scrollToBottom()
+})
+
+// 监听左侧tab切换
+watch(leftTabActive, (newVal) => {
+  if (newVal === 'hotspot' && hotspotList.value.length === 0) {
+    loadHotspots()
+  }
+})
+
+// 监听平台筛选变化
+watch(hotspotPlatform, () => {
+  if (leftTabActive.value === 'hotspot') {
+    loadHotspots()
+  }
+})
+
+// 页面卸载清理
+onUnmounted(() => {
+  if (typeWriterTimer) clearInterval(typeWriterTimer)
+  if (typeWriterTimeout) clearTimeout(typeWriterTimeout)
+  if (streamController) {
+    streamController.abort()
+    streamController = null
+  }
+})
+
+// 加载后端历史对话
+const loadHistoryFromBackend = async () => {
+  loadingHistory.value = true
+  try {
+    const res = await getSessions()
+    if (res.code === 200 && res.session_list) {
+      // 存储会话列表
+      sessions.value = res.session_list
+      
+      // 转换后端会话列表为前端历史对话格式
+      const transformedHistory = []
+      res.session_list.forEach(session => {
+        const chatItem = {
+          id: session.session_id,
+          title: session.session_title,
+          time: formatTime(session.update_time),
+          session_id: session.session_id,
+          messages: []
+        }
+        transformedHistory.push(chatItem)
+      })
+      chatHistory.value = transformedHistory
+
+      // 如果有历史记录，默认选中第一条
+      if (chatHistory.value.length > 0) {
+        currentChatIndex.value = 0
+        // 加载第一个会话的详情
+        await loadSessionDetail(chatHistory.value[0].session_id)
+      }
+    } else {
+      chatHistory.value = []
+      currentMessages.value = []
+    }
+  } catch (error) {
+    console.error('加载历史对话失败：', error)
+    ElMessage.warning('加载历史创作失败，仅显示新创作内容')
+    chatHistory.value = []
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+// 只加载会话列表，不加载会话详情（用于生成完成后更新历史列表）
+const loadSessionListOnly = async () => {
+  try {
+    const res = await getSessions()
+    if (res.code === 200 && res.session_list) {
+      // 存储会话列表
+      sessions.value = res.session_list
+      
+      // 转换后端会话列表为前端历史对话格式
+      const transformedHistory = []
+      res.session_list.forEach(session => {
+        const chatItem = {
+          id: session.session_id,
+          title: session.session_title,
+          time: formatTime(session.update_time),
+          session_id: session.session_id,
+          messages: []
+        }
+        transformedHistory.push(chatItem)
+      })
+      chatHistory.value = transformedHistory
+    }
+  } catch (error) {
+    console.error('加载会话列表失败：', error)
+  }
+}
+
+// 加载会话详情
+const loadSessionDetail = async (sessionId) => {
+  try {
+    const res = await getSessionDetail(sessionId)
+    if (res.code === 200 && res.session) {
+      const session = res.session
+      // 转换会话内容为前端消息格式
+      const messages = []
+      session.contents.forEach(content => {
+        messages.push({
+          role: 'user',
+          content: content.title,
+          platform: content.platform,
+          time: formatTime(content.create_time),
+          originalTime: content.create_time // 存储原始时间用于排序
+        })
+        messages.push({
+          role: 'ai',
+          content: content.content,
+          displayContent: content.content,
+          loading: false,
+          time: formatTime(content.create_time),
+          originalTime: content.create_time // 存储原始时间用于排序
+        })
+      })
+      // 按照时间顺序排序，早的消息在前
+      messages.sort((a, b) => new Date(a.originalTime) - new Date(b.originalTime))
+      currentMessages.value = messages
+      scrollToBottom()
+    }
+  } catch (error) {
+    console.error('加载会话详情失败：', error)
+    ElMessage.warning('加载会话详情失败')
+  }
+}
+
+// 发送消息（适配后端接口）
+const handleSend = async () => {
+  if (!userInput.value.trim()) {
+    ElMessage.warning('请输入创作需求')
+    return
+  }
+
+  if (typeWriterTimer) clearInterval(typeWriterTimer)
+  if (streamController) {
+    streamController.abort()
+    streamController = null
+  }
+
+  // 获取当前时间
+  const now = new Date().toISOString()
+  
+  // 添加用户消息
+  const userMsg = {
+    role: 'user',
+    content: userInput.value.trim(),
+    platform: currentPlatform.value,
+    time: formatTime(),
+    originalTime: now // 存储原始时间用于排序
+  }
+  currentMessages.value.push(userMsg)
+
+  // 响应式AI消息对象
+  const aiMsg = reactive({
+    role: 'ai',
+    content: '',
+    displayContent: '',
+    loading: true,
+    time: formatTime(),
+    originalTime: now // 存储原始时间用于排序
+  })
+  currentMessages.value.push(aiMsg)
+
+  // 清空输入框
+  const inputPrompt = userInput.value.trim()
+  userInput.value = ''
+  scrollToBottom()
+
+  loading.value = true
+  
+  // 获取session_id
+  const currentChat = chatHistory.value[currentChatIndex.value]
+  const sessionId = currentChat ? currentChat.session_id : null
+  
+  const streamData = {
+    prompt: inputPrompt,
+    platform: currentPlatform.value,
+    title: inputPrompt,
+    session_id: sessionId,
+    persona: {
+      domain: personaForm.domain,
+      style: personaForm.style,
+      tone: personaForm.tone
+    }
+  }
+
+  let fullContent = ''
+  let contentId = null
+  let typingIndex = 0
+  let returnedSessionId = sessionId // 初始化为当前的sessionId
+
+  console.log('开始发送流式请求')
+  // 打字机效果函数
+  const runTypeWriter = () => {
+    if (typingIndex < fullContent.length) {
+      aiMsg.displayContent = fullContent.substring(0, typingIndex + 1)
+      typingIndex++
+      scrollToBottom()
+      typeWriterTimeout = setTimeout(runTypeWriter, 20)
+    } else {
+      typeWriterTimeout = null
+    }
+  }
+
+  streamController = generateContentStream(
+    streamData,
+    (data) => { 
+      console.log('收到流式数据:', data)
+      if (data.code === 200) {
+        if (data.content) {
+          // 累积内容
+          fullContent += data.content
+          aiMsg.content = fullContent
+          aiMsg.loading = false
+          
+          console.log('当前fullContent:', fullContent)
+          console.log('当前typingIndex:', typingIndex)
+          
+          // 如果没有打字机效果在运行，则启动
+          if (!typeWriterTimeout) {
+            // 重置打字索引
+            typingIndex = 0
+            // 启动打字机效果
+            runTypeWriter()
+          }
+        }
+        if (data.id) {
+          contentId = data.id
+        }
+        if (data.session_id) {
+          returnedSessionId = data.session_id
+        }
+      } else {
+        ElMessage.error(data.msg || '生成失败')
+        aiMsg.loading = false
+        aiMsg.content = '生成失败，请稍后重试'
+        aiMsg.displayContent = aiMsg.content
+        loading.value = false
+        streamController = null
+      }
+    },
+    (error) => {
+      ElMessage.error('生成异常，请稍后重试')
+      aiMsg.loading = false
+      aiMsg.content = '生成异常，请稍后重试'
+      aiMsg.displayContent = aiMsg.content
+      console.error('生成异常：', error)
+      loading.value = false
+      streamController = null
+    },
+    (data) => {
+      // 流式结束
+      console.log('流式请求完成，内容:', fullContent)
+      // 确保显示完整内容
+      aiMsg.content = fullContent
+      aiMsg.loading = false
+      scrollToBottom()
+      
+      if (fullContent) {
+        // 只更新会话列表，不更新会话详情，避免打断打字机效果
+        loadSessionListOnly()
+        // 设置当前选中的会话索引为0（最新的会话）
+        currentChatIndex.value = 0
+      }
+      loading.value = false
+      streamController = null
+    }
+  )
+}
+
+// 使用快捷提示词
+const useQuickPrompt = (prompt) => {
+  userInput.value = prompt
+}
+
+// 复制内容
+const copyContent = (content) => {
+  navigator.clipboard.writeText(content).then(() => {
+    ElMessage.success('内容已复制到剪贴板')
+  }).catch(() => {
+    ElMessage.error('复制失败，请手动复制')
+  })
+}
+
+// 重新生成
+const regenerateContent = (msg) => {
+  const userMsgIndex = currentMessages.value.findIndex(m => m.role === 'user' && currentMessages.value.indexOf(m) < currentMessages.value.indexOf(msg))
+  if (userMsgIndex !== -1) {
+    const userMsg = currentMessages.value[userMsgIndex]
+    userInput.value = userMsg.content
+    currentPlatform.value = userMsg.platform
+    currentMessages.value = currentMessages.value.slice(0, userMsgIndex + 1)
+    handleSend()
+  }
+}
+
+// 开始新对话
+const startNewChat = () => {
+  currentChatIndex.value = -1
+  currentMessages.value = []
+  userInput.value = ''
+}
+
+// 切换历史对话
+const switchChat = async (index) => {
+  currentChatIndex.value = index
+  const sessionId = chatHistory.value[index].session_id
+  // 加载会话详情
+  await loadSessionDetail(sessionId)
+}
+
+// 退出登录
+const handleLogout = () => {
+  ElMessageBox.confirm(
+    '确定要退出登录吗？',
+    '提示',
+    {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(() => {
+    removeToken()
+    router.push('/login')
+    ElMessage.success('已退出登录')
+  })
+}
+</script>
+
+<style scoped>
+.input-container :deep(.el-textarea__inner) {
+  border: none;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.input-container :deep(.el-textarea) {
+  border: none;
+  box-shadow: none;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>
