@@ -32,30 +32,97 @@
           </el-button>
         </div>
       </div>
-      <p class="text-xs text-gray-500 mx-4 my-2">创作历史</p>
-      <div class="flex-1 overflow-y-auto p-2 pr-4 bg-gray-50">
-        <!-- 加载状态提示 -->
-        <div v-if="loadingHistory" class="p-4">
-          <el-skeleton :rows="3" animated />
-        </div>
-        <!-- 无历史记录提示 -->
-        <div v-else-if="chatHistory.length === 0" class="p-4">
-          <el-empty description="暂无创作历史，开始你的第一次创作吧～" />
-        </div>
-        <!-- 历史列表 -->
-        <div v-else v-for="(chat, index) in chatHistory" :key="chat.id || index" 
-             class="p-3 rounded-lg mb-2 cursor-pointer transition-all duration-200 bg-gray-50 hover:bg-gray-100 hover:translate-x-1"
-             :class="{'bg-white': currentChatIndex === index}" 
-             @click="switchChat(index)">
-          <div class="flex items-center gap-2 text-sm font-medium mb-1" :class="{'font-bold': currentChatIndex === index}">
-            <el-icon class="text-gray-500">
-              <Document />
-            </el-icon>
-            {{ chat.title }}
-          </div>
-          <div class="text-xs text-gray-500" >{{ chat.time }}</div>
-        </div>
+      
+      <!-- Tabs切换 -->
+      <div class="px-4 flex-1 overflow-hidden">
+        <el-tabs v-model="leftTabActive" class="left-tabs h-full">
+          <el-tab-pane label="历史会话" name="history">
+            <div class="overflow-y-auto p-2 pr-4 bg-gray-50" style="max-height: calc(100vh - 320px);">
+              <!-- 加载状态提示 -->
+              <div v-if="loadingHistory" class="p-4">
+                <el-skeleton :rows="3" animated />
+              </div>
+              <!-- 无历史记录提示 -->
+              <div v-else-if="chatHistory.length === 0" class="p-4">
+                <el-empty description="暂无创作历史，开始你的第一次创作吧～" />
+              </div>
+              <!-- 历史列表 -->
+              <div v-else v-for="(chat, index) in chatHistory" :key="chat.id || index" 
+                   class="p-3 rounded-lg mb-2 cursor-pointer transition-all duration-200 bg-gray-50 hover:bg-gray-100 hover:translate-x-1"
+                   :class="{'bg-white': currentChatIndex === index}" 
+                   @click="switchChat(index)">
+                <div class="flex items-center gap-2 text-sm font-medium mb-1" :class="{'font-bold': currentChatIndex === index}">
+                  <el-icon class="text-gray-500">
+                    <Document />
+                  </el-icon>
+                  {{ chat.title }}
+                </div>
+                <div class="text-xs text-gray-500" >{{ chat.time }}</div>
+              </div>
+            </div>
+          </el-tab-pane>
+          
+          <el-tab-pane label="热点浏览" name="hotspot">
+            <div class="flex flex-col" style="max-height: calc(100vh - 320px);">
+              <!-- 平台筛选 -->
+              <div class="mb-3">
+                <el-select v-model="hotspotPlatform" placeholder="全部平台" size="small" clearable class="w-full">
+                  <el-option label="全部" value="" />
+                  <el-option label="微博" value="微博" />
+                  <el-option label="小红书" value="小红书" />
+                  <el-option label="抖音" value="抖音" />
+                </el-select>
+              </div>
+              
+              <!-- 搜索框 -->
+              <div class="mb-3">
+                <el-input v-model="hotspotSearchKeyword" placeholder="搜索热点" size="small" clearable>
+                  <template #prefix>
+                    <el-icon><Search /></el-icon>
+                  </template>
+                </el-input>
+              </div>
+              
+              <!-- 刷新按钮 -->
+              <div class="mb-3">
+                <el-button size="small" @click="handleRefreshHotspots" :loading="hotspotLoading" class="w-full">
+                  <el-icon class="mr-1"><Refresh /></el-icon>
+                  刷新热点
+                </el-button>
+              </div>
+              
+              <!-- 热点列表 -->
+              <div class="flex-1 overflow-y-auto">
+                <div v-if="hotspotLoading" class="p-4">
+                  <el-skeleton :rows="3" animated />
+                </div>
+                <div v-else-if="filteredHotspots.length === 0" class="p-4">
+                  <el-empty description="暂无热点数据" />
+                </div>
+                <div v-else v-for="hotspot in filteredHotspots" :key="hotspot.id" 
+                     class="p-3 rounded-lg mb-2 bg-white border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all duration-200">
+                  <div class="flex items-start justify-between mb-2">
+                    <div class="flex-1">
+                      <div class="text-sm font-medium text-gray-800 mb-1 line-clamp-2">{{ hotspot.title }}</div>
+                      <div class="text-xs text-gray-500 mb-2">{{ hotspot.keywords }}</div>
+                    </div>
+                    <el-tag :type="getHeatTag(hotspot.heat_value).type" size="small" class="ml-2 flex-shrink-0">
+                      {{ getHeatTag(hotspot.heat_value).text }}
+                    </el-tag>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div class="text-xs text-gray-400">{{ hotspot.platform }}</div>
+                    <el-button size="small" type="primary" @click="useHotspot(hotspot)" class="text-xs">
+                      一键使用
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </div>
+      
       <div class="p-4">
         <el-button @click="handleLogout" class="rounded-lg w-full h-10 text-gray-600 hover:text-gray-800 hover:bg-gray-100 hover:border-gray-100 border-2 border-gray-100 ">
           退出登录
@@ -238,7 +305,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -251,12 +318,14 @@ import {
   Refresh,
   Promotion,
   UserFilled,
-  Calendar
+  Calendar,
+  Search
 } from '@element-plus/icons-vue'
 import { generateContent, generateContentStream, getSessions, getSessionDetail } from '@/api/content'
 import { validateAdmin } from '@/api/admin'
 import { removeToken } from '@/utils/auth'
 import { getPersonaInfo, savePersona } from '@/api/persona'
+import { getHotspotList, refreshHotspots } from '@/api/hotspot'
 import { personaOptions } from '@/data/personaOptions'
 
 const router = useRouter()
@@ -279,6 +348,11 @@ const personaForm = reactive({
   tone: ''
 })
 const savingPersona = ref(false)
+const leftTabActive = ref('history')
+const hotspotList = ref([])
+const hotspotLoading = ref(false)
+const hotspotPlatform = ref('')
+const hotspotSearchKeyword = ref('')
 let streamController = null // 流式请求控制器
 let typeWriterTimeout = null // 打字机效果定时器
 
@@ -391,12 +465,99 @@ const handleResetPersona = () => {
   ElMessage.success('已重置为默认')
 }
 
+// 加载热点列表
+const loadHotspots = async () => {
+  hotspotLoading.value = true
+  try {
+    const params = {
+      limit: 50
+    }
+    if (hotspotPlatform.value) {
+      params.platform = hotspotPlatform.value
+    }
+    
+    const res = await getHotspotList(params)
+    if (res.code === 200 && res.data) {
+      hotspotList.value = res.data
+    } else {
+      hotspotList.value = []
+    }
+  } catch (error) {
+    console.error('加载热点列表失败：', error)
+    ElMessage.error('加载热点列表失败')
+    hotspotList.value = []
+  } finally {
+    hotspotLoading.value = false
+  }
+}
+
+// 刷新热点数据
+const handleRefreshHotspots = async () => {
+  try {
+    const res = await refreshHotspots()
+    if (res.code === 200) {
+      ElMessage.success('刷新热点数据成功')
+      await loadHotspots()
+    } else {
+      ElMessage.error(res.msg || '刷新失败')
+    }
+  } catch (error) {
+    console.error('刷新热点数据失败：', error)
+    ElMessage.error('刷新失败，请稍后重试')
+  }
+}
+
+// 一键使用热点
+const useHotspot = (hotspot) => {
+  const content = `基于热点：【${hotspot.title}】
+关键词：${hotspot.keywords}
+请生成一篇适合${personaForm.domain || '社交平台'}的社交文案`
+  userInput.value = content
+  ElMessage.success('已填入输入框')
+}
+
+// 获取热度标签
+const getHeatTag = (heatValue) => {
+  if (heatValue >= 1000000) {
+    return { text: '爆', type: 'danger' }
+  } else if (heatValue >= 500000) {
+    return { text: '热', type: 'warning' }
+  } else {
+    return { text: '新', type: 'success' }
+  }
+}
+
+// 过滤热点列表
+const filteredHotspots = computed(() => {
+  if (!hotspotSearchKeyword.value) {
+    return hotspotList.value
+  }
+  return hotspotList.value.filter(hotspot => 
+    hotspot.title.includes(hotspotSearchKeyword.value) ||
+    hotspot.keywords.includes(hotspotSearchKeyword.value)
+  )
+})
+
 // 页面加载时初始化
 onMounted(() => {
   loadHistoryFromBackend()
   checkAdminStatus()
   loadPersona()
   scrollToBottom()
+})
+
+// 监听左侧tab切换
+watch(leftTabActive, (newVal) => {
+  if (newVal === 'hotspot' && hotspotList.value.length === 0) {
+    loadHotspots()
+  }
+})
+
+// 监听平台筛选变化
+watch(hotspotPlatform, () => {
+  if (leftTabActive.value === 'hotspot') {
+    loadHotspots()
+  }
 })
 
 // 页面卸载清理
@@ -715,13 +876,6 @@ const handleLogout = () => {
     ElMessage.success('已退出登录')
   })
 }
-
-// 页面加载时初始化（核心：调用后端接口加载历史）
-onMounted(() => {
-  // 优先加载后端历史对话
-  loadHistoryFromBackend()
-  scrollToBottom()
-})
 </script>
 
 <style scoped>
@@ -735,5 +889,12 @@ onMounted(() => {
 .input-container :deep(.el-textarea) {
   border: none;
   box-shadow: none;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>
