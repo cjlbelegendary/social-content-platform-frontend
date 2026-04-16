@@ -71,8 +71,7 @@ const personaForm = reactive({
 })
 
 let streamController = null
-let typeWriterTimeout = null
-let typeWriterTimer = null
+let animationFrame = null
 
 const currentTitle = computed(() => {
   return currentChatIndex.value >= 0 && chatHistory.value.length > 0 
@@ -193,7 +192,10 @@ const handleSend = async () => {
     return
   }
 
-  if (typeWriterTimer) clearInterval(typeWriterTimer)
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame)
+    animationFrame = null
+  }
   if (streamController) {
     streamController.abort()
     streamController = null
@@ -242,17 +244,22 @@ const handleSend = async () => {
   }
 
   let fullContent = ''
-  let typingIndex = 0
+  let displayLength = 0
 
-  const runTypeWriter = () => {
-    if (typingIndex < fullContent.length) {
-      aiMsg.displayContent = fullContent.substring(0, typingIndex + 1)
-      typingIndex++
-      scrollToBottom()
-      typeWriterTimeout = setTimeout(runTypeWriter, 20)
-    } else {
-      typeWriterTimeout = null
+  const animate = () => {
+    const remaining = fullContent.length - displayLength
+    
+    if (remaining <= 0) {
+      animationFrame = null
+      return
     }
+    
+    const speed = Math.max(1, Math.min(remaining, 10))
+    displayLength += speed
+    aiMsg.displayContent = fullContent.substring(0, displayLength)
+    scrollToBottom()
+    
+    animationFrame = requestAnimationFrame(animate)
   }
 
   streamController = generateContentStream(
@@ -264,9 +271,8 @@ const handleSend = async () => {
           aiMsg.content = fullContent
           aiMsg.loading = false
           
-          if (!typeWriterTimeout) {
-            typingIndex = 0
-            runTypeWriter()
+          if (!animationFrame) {
+            animate()
           }
         }
       } else {
@@ -288,9 +294,15 @@ const handleSend = async () => {
       streamController = null
     },
     (data) => {
-      aiMsg.content = fullContent
+      displayLength = fullContent.length
+      aiMsg.displayContent = fullContent
       aiMsg.loading = false
       scrollToBottom()
+      
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame)
+        animationFrame = null
+      }
       
       if (fullContent) {
         loadSessionListOnly()
@@ -391,8 +403,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (typeWriterTimer) clearInterval(typeWriterTimer)
-  if (typeWriterTimeout) clearTimeout(typeWriterTimeout)
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame)
+    animationFrame = null
+  }
   if (streamController) {
     streamController.abort()
     streamController = null
