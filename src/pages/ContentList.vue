@@ -2,219 +2,169 @@
   <div class="list-container">
     <el-page-header content="我的内容列表" @back="$router.push('/home')" class="page-header" />
 
-    <el-card class="filter-card">
-      <el-form :inline="true" :model="filterForm" class="filter-form">
-        <el-form-item label="平台">
-          <el-select v-model="filterForm.platform" placeholder="全部平台" clearable multiple collapse-tags collapse-tags-tooltip style="width: 150px">
-            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="会话">
-          <el-select v-model="filterForm.session_id" placeholder="全部会话" clearable multiple collapse-tags collapse-tags-tooltip style="width: 200px">
-            <el-option v-for="session in sessionList" :key="session.session_id" :label="session.session_title" :value="session.session_id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="时间范围">
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-            style="width: 240px"
-          />
-        </el-form-item>
-        <el-form-item label="标题">
-          <el-input v-model="filterForm.title" placeholder="请输入标题关键词" clearable style="width: 180px" />
-        </el-form-item>
-        <el-form-item label="内容">
-          <el-input v-model="filterForm.content" placeholder="请输入内容关键词" clearable style="width: 180px" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch" class="bg-blue-500 hover:bg-blue-600">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card class="list-card">
-      <div class="table-header">
-        <el-button 
-          type="primary" 
-          class="bg-green-500 hover:bg-green-600" 
+    <FilterTable
+      :filter-fields="filterFields"
+      :filter-model="filterForm"
+      :date-range="dateRange"
+      @update:date-range="dateRange = $event"
+      :columns="columns"
+      :table-data="contentList"
+      :loading="loading"
+      :pagination="pagination"
+      @update:pagination="pagination = $event"
+      :selectable="true"
+      @search="handleSearch"
+      @reset="handleReset"
+      @selection-change="handleSelectionChange"
+      @row-click="handleRowClick"
+    >
+      <template #table-header>
+        <el-button
+          type="primary"
+          class="bg-green-500 hover:bg-green-600"
           :disabled="selectedContents.length === 0"
           @click="handleBatchSchedule"
         >
           批量创建排期 ({{ selectedContents.length }})
         </el-button>
+      </template>
+
+      <template #column-platform="{ row }">
+        <el-tag class="bg-blue-50 text-blue-600 border-blue-200">{{ row.platform }}</el-tag>
+      </template>
+
+      <template #operation="{ row }">
+        <el-button type="primary" link @click.stop="handleView(row)">查看详情</el-button>
+        <el-button type="success" link @click.stop="handleCreateSchedule(row)">创建排期</el-button>
+      </template>
+    </FilterTable>
+
+    <el-dialog v-model="dialogVisible" title="内容详情" width="800px" destroy-on-close>
+      <el-input v-model="currentContent" type="textarea" :rows="18" readonly class="detail-textarea" />
+      <template #footer>
+        <el-button @click="dialogVisible = false" class="text-gray-600">关闭</el-button>
+        <el-button class="bg-blue-500 text-white hover:bg-blue-600" @click="handleCopyDetail">
+          复制内容
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="scheduleDialogVisible" title="创建排期" width="500px" destroy-on-close>
+      <el-form :model="scheduleForm" label-width="100px">
+        <el-form-item label="发布平台">
+          <el-select v-model="scheduleForm.platform" placeholder="请选择发布平台" style="width: 100%">
+            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="发布时间">
+          <el-date-picker
+            v-model="scheduleForm.publish_time"
+            type="datetime"
+            placeholder="选择日期时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="排期备注">
+          <el-input
+            v-model="scheduleForm.schedule_note"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入排期备注，如：小红书早8点发布"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="scheduleDialogVisible = false" class="text-gray-600">取消</el-button>
+        <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveSchedule" :loading="scheduleLoading">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="batchScheduleDialogVisible" title="批量创建排期" width="700px" destroy-on-close>
+      <div class="batch-info">
+        <span>已选择 {{ selectedContents.length }} 条内容</span>
       </div>
       
-      <el-table 
-        :data="contentList" 
-        border 
-        stripe 
-        :loading="loading" 
-        style="width: 100%" 
-        @row-click="handleRowClick"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="50" />
-        <el-table-column prop="id" label="ID" width="80" align="center" />
-        <el-table-column prop="title" label="标题" min-width="200" />
-        <el-table-column prop="session_title" label="会话" min-width="150" />
-        <el-table-column prop="platform" label="发布平台" width="120" align="center">
+      <el-form :model="batchScheduleForm" label-width="100px" class="batch-form">
+        <el-form-item label="统一平台">
+          <el-select v-model="batchScheduleForm.platform" placeholder="请选择发布平台" style="width: 100%" @change="handlePlatformChange">
+            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="统一时间">
+          <el-date-picker
+            v-model="batchScheduleForm.publish_time"
+            type="datetime"
+            placeholder="选择日期时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+            @change="handleTimeChange"
+          />
+        </el-form-item>
+        <el-form-item label="统一备注">
+          <el-input
+            v-model="batchScheduleForm.schedule_note"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入排期备注（可选）"
+            @input="handleNoteChange"
+          />
+        </el-form-item>
+      </el-form>
+
+      <el-table :data="batchScheduleTableData" border style="width: 100%; margin-top: 20px;">
+        <el-table-column prop="title" label="内容标题" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="platform" label="平台" width="100" align="center">
           <template #default="scope">
-            <el-tag class="bg-blue-50 text-blue-600 border-blue-200">{{ scope.row.platform }}</el-tag>
+            <el-select
+              v-model="scope.row.platform"
+              placeholder="选择平台"
+              style="width: 100px"
+              size="small"
+            >
+              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
           </template>
         </el-table-column>
-        <el-table-column prop="create_time" label="创建时间" width="200" align="center" />
-        <el-table-column label="操作" width="200" align="center">
+        <el-table-column prop="publish_time" label="发布时间" width="180" align="center">
           <template #default="scope">
-            <el-button type="primary" link @click.stop="handleView(scope.row)">查看详情</el-button>
-            <el-button type="success" link @click.stop="handleCreateSchedule(scope.row)">创建排期</el-button>
+            <el-date-picker
+              v-model="scope.row.publish_time"
+              type="datetime"
+              placeholder="选择时间"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              style="width: 160px"
+              size="small"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="schedule_note" label="备注" width="120">
+          <template #default="scope">
+            <el-input
+              v-model="scope.row.schedule_note"
+              placeholder="备注"
+              size="small"
+            />
           </template>
         </el-table-column>
       </el-table>
 
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.page_size"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-
-      <el-dialog v-model="dialogVisible" title="内容详情" width="800px" destroy-on-close>
-        <el-input v-model="currentContent" type="textarea" :rows="18" readonly class="detail-textarea" />
-        <template #footer>
-          <el-button @click="dialogVisible = false" class="text-gray-600">关闭</el-button>
-          <el-button class="bg-blue-500 text-white hover:bg-blue-600" @click="handleCopyDetail">
-            复制内容
-          </el-button>
-        </template>
-      </el-dialog>
-
-      <el-dialog v-model="scheduleDialogVisible" title="创建排期" width="500px" destroy-on-close>
-        <el-form :model="scheduleForm" label-width="100px">
-          <el-form-item label="发布平台">
-            <el-select v-model="scheduleForm.platform" placeholder="请选择发布平台" style="width: 100%">
-              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="发布时间">
-            <el-date-picker
-              v-model="scheduleForm.publish_time"
-              type="datetime"
-              placeholder="选择日期时间"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 100%"
-            />
-          </el-form-item>
-          <el-form-item label="排期备注">
-            <el-input
-              v-model="scheduleForm.schedule_note"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入排期备注，如：小红书早8点发布"
-            />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="scheduleDialogVisible = false" class="text-gray-600">取消</el-button>
-          <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveSchedule" :loading="scheduleLoading">
-            保存
-          </el-button>
-        </template>
-      </el-dialog>
-
-      <el-dialog v-model="batchScheduleDialogVisible" title="批量创建排期" width="700px" destroy-on-close>
-        <div class="batch-info">
-          <span>已选择 {{ selectedContents.length }} 条内容</span>
-        </div>
-        
-        <el-form :model="batchScheduleForm" label-width="100px" class="batch-form">
-          <el-form-item label="统一平台">
-            <el-select v-model="batchScheduleForm.platform" placeholder="请选择发布平台" style="width: 100%" @change="handlePlatformChange">
-              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="统一时间">
-            <el-date-picker
-              v-model="batchScheduleForm.publish_time"
-              type="datetime"
-              placeholder="选择日期时间"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 100%"
-              @change="handleTimeChange"
-            />
-          </el-form-item>
-          <el-form-item label="统一备注">
-            <el-input
-              v-model="batchScheduleForm.schedule_note"
-              type="textarea"
-              :rows="2"
-              placeholder="请输入排期备注（可选）"
-              @input="handleNoteChange"
-            />
-          </el-form-item>
-        </el-form>
-
-        <el-table :data="batchScheduleTableData" border style="width: 100%; margin-top: 20px;">
-          <el-table-column prop="title" label="内容标题" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="platform" label="平台" width="100" align="center">
-            <template #default="scope">
-              <el-select 
-                v-model="scope.row.platform" 
-                placeholder="选择平台" 
-                style="width: 100px"
-                size="small"
-              >
-                <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column prop="publish_time" label="发布时间" width="180" align="center">
-            <template #default="scope">
-              <el-date-picker
-                v-model="scope.row.publish_time"
-                type="datetime"
-                placeholder="选择时间"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 160px"
-                size="small"
-              />
-            </template>
-          </el-table-column>
-          <el-table-column prop="schedule_note" label="备注" width="120">
-            <template #default="scope">
-              <el-input 
-                v-model="scope.row.schedule_note" 
-                placeholder="备注" 
-                size="small"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <template #footer>
-          <el-button @click="batchScheduleDialogVisible = false" class="text-gray-600">取消</el-button>
-          <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveBatchSchedule" :loading="batchScheduleLoading">
-            批量创建
-          </el-button>
-        </template>
-      </el-dialog>
-    </el-card>
+      <template #footer>
+        <el-button @click="batchScheduleDialogVisible = false" class="text-gray-600">取消</el-button>
+        <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveBatchSchedule" :loading="batchScheduleLoading">
+          批量创建
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import FilterTable from '@/components/FilterTable.vue'
 import { getContents, getSessions, createSchedule, batchCreateSchedule } from '@/api/content'
 
 const loading = ref(false)
@@ -265,6 +215,51 @@ const pagination = reactive({
   page_size: 10,
   total: 0
 })
+
+const filterFields = computed(() => [
+  {
+    prop: 'platform',
+    label: '平台',
+    type: 'select',
+    options: platformOptions,
+    multiple: true,
+    width: '150px'
+  },
+  {
+    prop: 'session_id',
+    label: '会话',
+    type: 'select',
+    options: sessionList.value.map(s => ({ label: s.session_title, value: s.session_id })),
+    multiple: true,
+    width: '200px'
+  },
+  {
+    prop: 'dateRange',
+    label: '时间范围',
+    type: 'daterange',
+    width: '240px'
+  },
+  {
+    prop: 'title',
+    label: '标题',
+    type: 'input',
+    width: '180px'
+  },
+  {
+    prop: 'content',
+    label: '内容',
+    type: 'input',
+    width: '180px'
+  }
+])
+
+const columns = [
+  { prop: 'id', label: 'ID', width: 80, align: 'center' },
+  { prop: 'title', label: '标题', minWidth: 200 },
+  { prop: 'session_title', label: '会话', minWidth: 150 },
+  { prop: 'platform', label: '发布平台', width: 120, align: 'center' },
+  { prop: 'create_time', label: '创建时间', width: 200, align: 'center' }
+]
 
 const loadSessionList = async () => {
   try {
@@ -332,17 +327,6 @@ const handleReset = () => {
   filterForm.content = ''
   dateRange.value = []
   pagination.page = 1
-  loadContentList()
-}
-
-const handleSizeChange = (val) => {
-  pagination.page_size = val
-  pagination.page = 1
-  loadContentList()
-}
-
-const handleCurrentChange = (val) => {
-  pagination.page = val
   loadContentList()
 }
 
@@ -488,32 +472,6 @@ onMounted(() => {
 
 .page-header {
   margin-bottom: 20px;
-}
-
-.filter-card {
-  margin-bottom: 20px;
-}
-
-.filter-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.list-card {
-  padding: 20px;
-}
-
-.table-header {
-  margin-bottom: 15px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .detail-textarea {

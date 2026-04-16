@@ -2,283 +2,227 @@
   <div class="schedule-container">
     <el-page-header content="排期管理" @back="$router.push('/home')" class="page-header" />
 
-    <el-card class="filter-card">
-      <el-form :inline="true" :model="filterForm" class="filter-form">
-        <el-form-item label="状态">
-          <el-select v-model="filterForm.status" placeholder="全部状态" clearable multiple collapse-tags collapse-tags-tooltip style="width: 150px">
-            <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="平台">
-          <el-select v-model="filterForm.platform" placeholder="全部平台" clearable multiple collapse-tags collapse-tags-tooltip style="width: 150px">
-            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="发布时间">
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-            style="width: 240px"
-          />
-        </el-form-item>
-        <el-form-item label="内容标题">
-          <el-input v-model="filterForm.content_title" placeholder="请输入内容标题" clearable style="width: 150px" />
-        </el-form-item>
-        <el-form-item label="排期备注">
-          <el-input v-model="filterForm.schedule_note" placeholder="请输入排期备注" clearable style="width: 150px" />
-        </el-form-item>
-        <el-form-item label="发布结果">
-          <el-input v-model="filterForm.publish_note" placeholder="请输入发布结果" clearable style="width: 150px" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch" class="bg-blue-500 hover:bg-blue-600">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card class="list-card">
-      <div class="table-header">
-        <el-button 
-          type="primary" 
-          class="bg-green-500 hover:bg-green-600" 
+    <FilterTable
+      :filter-fields="filterFields"
+      :filter-model="filterForm"
+      :date-range="dateRange"
+      @update:date-range="dateRange = $event"
+      :columns="columns"
+      :table-data="scheduleList"
+      :loading="loading"
+      :pagination="pagination"
+      @update:pagination="pagination = $event"
+      :selectable="true"
+      :operation-width="200"
+      @search="handleSearch"
+      @reset="handleReset"
+      @selection-change="handleSelectionChange"
+    >
+      <template #table-header>
+        <el-button
+          type="primary"
+          class="bg-green-500 hover:bg-green-600"
           :disabled="selectedSchedules.length === 0"
           @click="handleBatchPublish"
         >
           批量发布 ({{ selectedSchedules.length }})
         </el-button>
-        <el-button 
-          type="primary" 
-          class="bg-blue-500 hover:bg-blue-600" 
+        <el-button
+          type="primary"
+          class="bg-blue-500 hover:bg-blue-600"
           :disabled="selectedSchedules.length === 0"
           @click="handleBatchUpdate"
         >
           批量更新 ({{ selectedSchedules.length }})
         </el-button>
-      </div>
+      </template>
 
-      <el-table 
-        :data="scheduleList" 
-        border 
-        stripe 
-        :loading="loading" 
-        style="width: 100%"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="50" />
-        <el-table-column prop="id" label="ID" width="80" align="center" />
-        <el-table-column prop="content_title" label="内容标题" min-width="150" />
-        <el-table-column prop="platform" label="发布平台" width="100" align="center">
+      <template #column-platform="{ row }">
+        <el-tag class="bg-blue-50 text-blue-600 border-blue-200">{{ row.platform }}</el-tag>
+      </template>
+
+      <template #column-status="{ row }">
+        <el-tag :class="getStatusClass(row.status)">
+          {{ getStatusText(row.status) }}
+        </el-tag>
+      </template>
+
+      <template #column-publish_note="{ row }">
+        <span v-if="row.publish_note">{{ row.publish_note }}</span>
+        <span v-else class="text-gray-400">-</span>
+      </template>
+
+      <template #operation="{ row }">
+        <template v-if="row.status === 'pending'">
+          <el-button type="primary" link @click="handleMarkPublished(row)">标记已发布</el-button>
+          <el-button type="danger" link @click="handleCancelSchedule(row)">取消排期</el-button>
+        </template>
+        <template v-else-if="row.status === 'published'">
+          <el-button type="primary" link @click="handleEditPublishNote(row)">填写结果</el-button>
+        </template>
+        <template v-else-if="row.status === 'expired' || row.status === 'failed'">
+          <el-button type="primary" link @click="handleReschedule(row)">重新排期</el-button>
+        </template>
+      </template>
+    </FilterTable>
+
+    <el-dialog v-model="publishNoteDialogVisible" title="填写发布结果" width="500px" destroy-on-close>
+      <el-form :model="publishNoteForm" label-width="100px">
+        <el-form-item label="发布结果">
+          <el-input
+            v-model="publishNoteForm.publish_note"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入发布结果，如：点赞量100，评论量20"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="publishNoteDialogVisible = false" class="text-gray-600">取消</el-button>
+        <el-button type="primary" class="bg-blue-500 hover:bg-blue-600" @click="handleSavePublishNote" :loading="publishNoteLoading">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="rescheduleDialogVisible" title="重新排期" width="500px" destroy-on-close>
+      <el-form :model="rescheduleForm" label-width="100px">
+        <el-form-item label="发布平台">
+          <el-select v-model="rescheduleForm.platform" placeholder="请选择发布平台" style="width: 100%">
+            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="发布时间">
+          <el-date-picker
+            v-model="rescheduleForm.publish_time"
+            type="datetime"
+            placeholder="选择日期时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="排期备注">
+          <el-input
+            v-model="rescheduleForm.schedule_note"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入排期备注"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rescheduleDialogVisible = false" class="text-gray-600">取消</el-button>
+        <el-button type="primary" class="bg-blue-500 hover:bg-blue-600" @click="handleSaveReschedule" :loading="rescheduleLoading">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="batchPublishDialogVisible" title="批量发布" width="500px" destroy-on-close>
+      <div class="batch-info">
+        <span>已选择 {{ selectedSchedules.length }} 条排期</span>
+      </div>
+      <el-form :model="batchPublishForm" label-width="100px">
+        <el-form-item label="发布备注">
+          <el-input
+            v-model="batchPublishForm.publish_note"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入发布备注（可选）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchPublishDialogVisible = false" class="text-gray-600">取消</el-button>
+        <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveBatchPublish" :loading="batchPublishLoading">
+          确认发布
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="batchUpdateDialogVisible" title="批量更新" width="700px" destroy-on-close>
+      <div class="batch-info">
+        <span>已选择 {{ selectedSchedules.length }} 条排期</span>
+      </div>
+      
+      <el-form :model="batchUpdateForm" label-width="100px" class="batch-form">
+        <el-form-item label="统一平台">
+          <el-select v-model="batchUpdateForm.platform" placeholder="不修改" clearable style="width: 100%" @change="handleBatchPlatformChange">
+            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="统一时间">
+          <el-date-picker
+            v-model="batchUpdateForm.publish_time"
+            type="datetime"
+            placeholder="不修改"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+            @change="handleBatchTimeChange"
+          />
+        </el-form-item>
+        <el-form-item label="统一备注">
+          <el-input
+            v-model="batchUpdateForm.publish_note"
+            type="textarea"
+            :rows="2"
+            placeholder="不修改"
+            @input="handleBatchNoteChange"
+          />
+        </el-form-item>
+      </el-form>
+
+      <el-table :data="batchUpdateTableData" border style="width: 100%; margin-top: 20px;">
+        <el-table-column prop="content_title" label="内容标题" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="platform" label="平台" width="100" align="center">
           <template #default="scope">
-            <el-tag class="bg-blue-50 text-blue-600 border-blue-200">{{ scope.row.platform }}</el-tag>
+            <el-select
+              v-model="scope.row.platform"
+              placeholder="选择平台"
+              style="width: 100px"
+              size="small"
+            >
+              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
           </template>
         </el-table-column>
-        <el-table-column prop="publish_time" label="发布时间" width="160" align="center" />
-        <el-table-column prop="status" label="状态" width="100" align="center">
+        <el-table-column prop="publish_time" label="发布时间" width="180" align="center">
           <template #default="scope">
-            <el-tag :class="getStatusClass(scope.row.status)">
-              {{ getStatusText(scope.row.status) }}
-            </el-tag>
+            <el-date-picker
+              v-model="scope.row.publish_time"
+              type="datetime"
+              placeholder="选择时间"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              style="width: 160px"
+              size="small"
+            />
           </template>
         </el-table-column>
-        <el-table-column prop="schedule_note" label="排期备注" min-width="120" />
-        <el-table-column prop="publish_note" label="发布结果" min-width="120">
+        <el-table-column prop="publish_note" label="发布备注" width="120">
           <template #default="scope">
-            <span v-if="scope.row.publish_note">{{ scope.row.publish_note }}</span>
-            <span v-else class="text-gray-400">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="create_time" label="创建时间" width="160" align="center" />
-        <el-table-column prop="update_time" label="更新时间" width="160" align="center" />
-        <el-table-column label="操作" width="200" align="center" fixed="right">
-          <template #default="scope">
-            <template v-if="scope.row.status === 'pending'">
-              <el-button type="primary" link @click="handleMarkPublished(scope.row)">标记已发布</el-button>
-              <el-button type="danger" link @click="handleCancelSchedule(scope.row)">取消排期</el-button>
-            </template>
-            <template v-else-if="scope.row.status === 'published'">
-              <el-button type="primary" link @click="handleEditPublishNote(scope.row)">填写结果</el-button>
-            </template>
-            <template v-else-if="scope.row.status === 'expired' || scope.row.status === 'failed'">
-              <el-button type="primary" link @click="handleReschedule(scope.row)">重新排期</el-button>
-            </template>
+            <el-input
+              v-model="scope.row.publish_note"
+              placeholder="备注"
+              size="small"
+            />
           </template>
         </el-table-column>
       </el-table>
 
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.page_size"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-
-      <el-dialog v-model="publishNoteDialogVisible" title="填写发布结果" width="500px" destroy-on-close>
-        <el-form :model="publishNoteForm" label-width="100px">
-          <el-form-item label="发布结果">
-            <el-input
-              v-model="publishNoteForm.publish_note"
-              type="textarea"
-              :rows="4"
-              placeholder="请输入发布结果，如：点赞量100，评论量20"
-            />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="publishNoteDialogVisible = false" class="text-gray-600">取消</el-button>
-          <el-button type="primary" class="bg-blue-500 hover:bg-blue-600" @click="handleSavePublishNote" :loading="publishNoteLoading">
-            保存
-          </el-button>
-        </template>
-      </el-dialog>
-
-      <el-dialog v-model="rescheduleDialogVisible" title="重新排期" width="500px" destroy-on-close>
-        <el-form :model="rescheduleForm" label-width="100px">
-          <el-form-item label="发布平台">
-            <el-select v-model="rescheduleForm.platform" placeholder="请选择发布平台" style="width: 100%">
-              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="发布时间">
-            <el-date-picker
-              v-model="rescheduleForm.publish_time"
-              type="datetime"
-              placeholder="选择日期时间"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 100%"
-            />
-          </el-form-item>
-          <el-form-item label="排期备注">
-            <el-input
-              v-model="rescheduleForm.schedule_note"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入排期备注"
-            />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="rescheduleDialogVisible = false" class="text-gray-600">取消</el-button>
-          <el-button type="primary" class="bg-blue-500 hover:bg-blue-600" @click="handleSaveReschedule" :loading="rescheduleLoading">
-            保存
-          </el-button>
-        </template>
-      </el-dialog>
-
-      <el-dialog v-model="batchPublishDialogVisible" title="批量发布" width="500px" destroy-on-close>
-        <div class="batch-info">
-          <span>已选择 {{ selectedSchedules.length }} 条排期</span>
-        </div>
-        <el-form :model="batchPublishForm" label-width="100px">
-          <el-form-item label="发布备注">
-            <el-input
-              v-model="batchPublishForm.publish_note"
-              type="textarea"
-              :rows="4"
-              placeholder="请输入发布备注（可选）"
-            />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="batchPublishDialogVisible = false" class="text-gray-600">取消</el-button>
-          <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveBatchPublish" :loading="batchPublishLoading">
-            确认发布
-          </el-button>
-        </template>
-      </el-dialog>
-
-      <el-dialog v-model="batchUpdateDialogVisible" title="批量更新" width="700px" destroy-on-close>
-        <div class="batch-info">
-          <span>已选择 {{ selectedSchedules.length }} 条排期</span>
-        </div>
-        
-        <el-form :model="batchUpdateForm" label-width="100px" class="batch-form">
-          <el-form-item label="统一平台">
-            <el-select v-model="batchUpdateForm.platform" placeholder="不修改" clearable style="width: 100%" @change="handleBatchPlatformChange">
-              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="统一时间">
-            <el-date-picker
-              v-model="batchUpdateForm.publish_time"
-              type="datetime"
-              placeholder="不修改"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 100%"
-              @change="handleBatchTimeChange"
-            />
-          </el-form-item>
-          <el-form-item label="统一备注">
-            <el-input
-              v-model="batchUpdateForm.publish_note"
-              type="textarea"
-              :rows="2"
-              placeholder="不修改"
-              @input="handleBatchNoteChange"
-            />
-          </el-form-item>
-        </el-form>
-
-        <el-table :data="batchUpdateTableData" border style="width: 100%; margin-top: 20px;">
-          <el-table-column prop="content_title" label="内容标题" min-width="120" show-overflow-tooltip />
-          <el-table-column prop="platform" label="平台" width="100" align="center">
-            <template #default="scope">
-              <el-select 
-                v-model="scope.row.platform" 
-                placeholder="选择平台" 
-                style="width: 100px"
-                size="small"
-              >
-                <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column prop="publish_time" label="发布时间" width="180" align="center">
-            <template #default="scope">
-              <el-date-picker
-                v-model="scope.row.publish_time"
-                type="datetime"
-                placeholder="选择时间"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 160px"
-                size="small"
-              />
-            </template>
-          </el-table-column>
-          <el-table-column prop="publish_note" label="发布备注" width="120">
-            <template #default="scope">
-              <el-input 
-                v-model="scope.row.publish_note" 
-                placeholder="备注" 
-                size="small"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <template #footer>
-          <el-button @click="batchUpdateDialogVisible = false" class="text-gray-600">取消</el-button>
-          <el-button type="primary" class="bg-blue-500 hover:bg-blue-600" @click="handleSaveBatchUpdate" :loading="batchUpdateLoading">
-            批量更新
-          </el-button>
-        </template>
-      </el-dialog>
-    </el-card>
+      <template #footer>
+        <el-button @click="batchUpdateDialogVisible = false" class="text-gray-600">取消</el-button>
+        <el-button type="primary" class="bg-blue-500 hover:bg-blue-600" @click="handleSaveBatchUpdate" :loading="batchUpdateLoading">
+          批量更新
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import FilterTable from '@/components/FilterTable.vue'
 import { getScheduleList, updateSchedule, batchUpdateSchedule } from '@/api/content'
 
 const loading = ref(false)
@@ -343,6 +287,61 @@ const pagination = reactive({
   total: 0
 })
 
+const filterFields = [
+  {
+    prop: 'status',
+    label: '状态',
+    type: 'select',
+    options: statusOptions,
+    multiple: true,
+    width: '150px'
+  },
+  {
+    prop: 'platform',
+    label: '平台',
+    type: 'select',
+    options: platformOptions,
+    multiple: true,
+    width: '150px'
+  },
+  {
+    prop: 'dateRange',
+    label: '发布时间',
+    type: 'daterange',
+    width: '240px'
+  },
+  {
+    prop: 'content_title',
+    label: '内容标题',
+    type: 'input',
+    width: '150px'
+  },
+  {
+    prop: 'schedule_note',
+    label: '排期备注',
+    type: 'input',
+    width: '150px'
+  },
+  {
+    prop: 'publish_note',
+    label: '发布结果',
+    type: 'input',
+    width: '150px'
+  }
+]
+
+const columns = [
+  { prop: 'id', label: 'ID', width: 80, align: 'center' },
+  { prop: 'content_title', label: '内容标题', minWidth: 150 },
+  { prop: 'platform', label: '发布平台', width: 100, align: 'center' },
+  { prop: 'publish_time', label: '发布时间', width: 160, align: 'center' },
+  { prop: 'status', label: '状态', width: 100, align: 'center' },
+  { prop: 'schedule_note', label: '排期备注', minWidth: 120 },
+  { prop: 'publish_note', label: '发布结果', minWidth: 120 },
+  { prop: 'create_time', label: '创建时间', width: 160, align: 'center' },
+  { prop: 'update_time', label: '更新时间', width: 160, align: 'center' }
+]
+
 const loadScheduleList = async () => {
   try {
     loading.value = true
@@ -402,17 +401,6 @@ const handleReset = () => {
   filterForm.publish_note = ''
   dateRange.value = []
   pagination.page = 1
-  loadScheduleList()
-}
-
-const handleSizeChange = (val) => {
-  pagination.page_size = val
-  pagination.page = 1
-  loadScheduleList()
-}
-
-const handleCurrentChange = (val) => {
-  pagination.page = val
   loadScheduleList()
 }
 
@@ -667,33 +655,6 @@ onMounted(() => {
 
 .page-header {
   margin-bottom: 20px;
-}
-
-.filter-card {
-  margin-bottom: 20px;
-}
-
-.filter-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.list-card {
-  padding: 20px;
-}
-
-.table-header {
-  margin-bottom: 15px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .batch-info {
