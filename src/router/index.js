@@ -2,9 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '@/utils/auth'
 import { validateAdmin } from '@/api/admin'
 
-// 导入页面组件
-import Login from '@/pages/Login.vue'
-import Register from '@/pages/Register.vue'
+import Auth from '@/pages/Auth.vue'
 import Home from '@/pages/Home.vue'
 import ContentList from '@/pages/ContentList.vue'
 import UserList from '@/pages/admin/UserList.vue'
@@ -48,15 +46,14 @@ const requireAdmin = (to, from, next) => {
   })
 }
 
-// 路由规则
 const routes = [
-  { path: '/', redirect: '/home' }, // 默认跳首页
-  { path: '/login', component: Login }, // 登录页
-  { path: '/register', component: Register }, // 注册页
-  { path: '/home', component: Home, beforeEnter: requireAuth }, // 内容生成页（需登录）
-  { path: '/content-list', component: ContentList, beforeEnter: requireAuth }, // 我的内容列表（需登录）
-  { path: '/schedule', component: Schedule, beforeEnter: requireAuth }, // 排期管理（需登录）
-  { path: '/admin/user-list', component: UserList, beforeEnter: requireAdmin } // 管理员用户列表（需登录）
+  { path: '/', redirect: '/home' },
+  { path: '/login', component: Auth },
+  { path: '/register', component: Auth },
+  { path: '/home', component: Home, beforeEnter: requireAuth },
+  { path: '/content-list', component: ContentList, beforeEnter: requireAuth },
+  { path: '/schedule', component: Schedule, beforeEnter: requireAuth },
+  { path: '/admin/user-list', component: UserList, beforeEnter: requireAdmin }
 ]
 
 // 创建路由实例
