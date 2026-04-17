@@ -45,7 +45,8 @@
                 <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
               </div>
               <div v-else class="text-base leading-relaxed text-gray-800">
-                <div class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
+                <MarkdownRenderer v-if="enableMarkdown && !msg.isTyping" :content="msg.displayContent" />
+                <div v-else class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
                 <div class="flex gap-3 pt-2 border-t border-gray-100">
                   <el-button size="small" link @click="$emit('copy', msg.content)" class="text-sm text-gray-600 hover:text-gray-800">
                     <el-icon>
@@ -73,9 +74,14 @@
 <script setup>
 import { ref, nextTick, watch } from 'vue'
 import { MagicStick, User, ChatDotRound, DocumentCopy, Refresh } from '@element-plus/icons-vue'
+import MarkdownRenderer from './MarkdownRenderer.vue'
 
 const props = defineProps({
-  messages: Array
+  messages: Array,
+  enableMarkdown: {
+    type: Boolean,
+    default: true
+  }
 })
 
 const emit = defineEmits(['use-prompt', 'copy', 'regenerate'])

@@ -13,14 +13,22 @@
     />
 
     <div class="flex-1 flex flex-col bg-white">
-      <div class="p-3 px-6 bg-white border-b border-gray-200 flex flex-col justify-center items-center">
-        <div class="text-base font-medium text-gray-800">{{ currentTitle }}</div>
-        <div class="text-xs text-gray-500">内容由ai生成</div>
+      <div class="p-3 px-6 bg-white border-b border-gray-200 flex justify-between items-center">
+        <div class="flex flex-col justify-center items-center flex-1">
+          <div class="text-base font-medium text-gray-800">{{ currentTitle }}</div>
+          <div class="text-xs text-gray-500">内容由ai生成</div>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+          <el-icon class="text-gray-600"><Document /></el-icon>
+          <span class="text-sm text-gray-600">Markdown</span>
+          <el-switch v-model="enableMarkdown" size="small" />
+        </div>
       </div>
 
       <MessageList
         ref="messageListRef"
         :messages="currentMessages"
+        :enable-markdown="enableMarkdown"
         @use-prompt="useQuickPrompt"
         @copy="copyContent"
         @regenerate="regenerateContent"
@@ -44,6 +52,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Document } from '@element-plus/icons-vue'
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import PersonaConfig from '@/components/PersonaConfig.vue'
 import MessageList from '@/components/MessageList.vue'
@@ -64,6 +73,7 @@ const currentMessages = ref([])
 const loadingHistory = ref(false)
 const sessions = ref([])
 const isAdmin = ref(false)
+const enableMarkdown = ref(true)
 const personaForm = reactive({
   domain: '',
   style: '',
@@ -217,6 +227,7 @@ const handleSend = async () => {
     content: '',
     displayContent: '',
     loading: true,
+    isTyping: false,
     time: formatTime(),
     originalTime: now
   })
@@ -250,8 +261,13 @@ const handleSend = async () => {
     const remaining = fullContent.length - displayLength
     
     if (remaining <= 0) {
+      aiMsg.isTyping = false
       animationFrame = null
       return
+    }
+    
+    if (!aiMsg.isTyping) {
+      aiMsg.isTyping = true
     }
     
     const speed = Math.max(1, Math.min(remaining, 10))
@@ -297,6 +313,7 @@ const handleSend = async () => {
       displayLength = fullContent.length
       aiMsg.displayContent = fullContent
       aiMsg.loading = false
+      aiMsg.isTyping = false
       scrollToBottom()
       
       if (animationFrame) {
