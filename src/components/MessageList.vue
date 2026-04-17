@@ -1,19 +1,21 @@
 <template>
-  <div class="flex-1 overflow-y-auto p-6 bg-white" ref="messagesRef">
+  <div class="flex-1 overflow-y-auto p-6 bg-[#fafafa]" ref="messagesRef">
     <div class="max-w-3xl mx-auto">
       <div v-if="messages.length === 0" class="text-center py-20 px-5">
-        <div class="text-gray-500 mb-5">
-          <el-icon :size="80">
-            <MagicStick />
-          </el-icon>
+        <div class="w-20 h-20 mx-auto mb-6 bg-[#1a1a1a] rounded-2xl flex items-center justify-center text-white">
+          <svg class="w-10 h-10" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
-        <h2 class="text-2xl font-medium text-gray-800 mb-2">开始你的创作之旅</h2>
-        <p class="text-gray-600 mb-7">输入你的创作需求，我会为你生成适配平台的优质内容</p>
+        <h2 class="text-2xl font-semibold text-[#1a1a1a] mb-3">开始你的创作之旅</h2>
+        <p class="text-[#666] mb-8">输入你的创作需求，我会为你生成适配平台的优质内容</p>
         <div class="flex flex-wrap gap-2 justify-center">
           <el-tag 
             v-for="prompt in quickPrompts" 
             :key="prompt" 
-            class="cursor-pointer transition-all duration-200 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 hover:text-gray-800 hover:-translate-y-0.5" 
+            class="cursor-pointer transition-all duration-200 px-4 py-2 text-sm bg-white border border-[#e5e5e5] text-[#666] hover:border-[#1a1a1a] hover:text-[#1a1a1a] hover:-translate-y-0.5 hover:shadow-sm rounded-xl" 
             @click="$emit('use-prompt', prompt)"
           >
             {{ prompt }}
@@ -22,7 +24,7 @@
       </div>
 
       <div v-for="(msg, index) in messages" :key="index" class="flex gap-3 mb-6" :class="{'flex-row-reverse': msg.role === 'user'}">
-        <div class="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-base flex-shrink-0" :class="{'bg-gray-300 text-gray-700': msg.role === 'user'}">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0" :class="msg.role === 'user' ? 'bg-[#e5e5e5] text-[#333]' : 'bg-white border border-[#e5e5e5] text-[#666]'">
           <el-icon v-if="msg.role === 'user'">
             <User />
           </el-icon>
@@ -31,31 +33,31 @@
           </el-icon>
         </div>
         <div class="max-w-[80%]">
-          <div class="p-4 rounded-[12px] mb-1" :class="{'bg-gray-200': msg.role === 'user', 'bg-white': msg.role === 'ai'}">
+          <div class="p-4 rounded-2xl mb-1" :class="msg.role === 'user' ? 'bg-[#f0f0f0] text-[#333]' : 'bg-white border border-[#e5e5e5]'">
             <template v-if="msg.role === 'user'">
               <div class="flex items-center gap-2">
-                <div class="flex-1 text-base leading-relaxed text-gray-800">{{ msg.content }}</div>
-                <el-tag size="small" class="bg-gray-300 text-gray-700 border-none">{{ msg.platform }}</el-tag>
+                <div class="flex-1 text-base leading-relaxed">{{ msg.content }}</div>
+                <el-tag size="small" class="bg-white text-[#666] border-[#e5e5e5]">{{ msg.platform }}</el-tag>
               </div>
             </template>
             <template v-else>
               <div v-if="msg.loading" class="flex gap-1.5 py-2">
-                <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style="animation-delay: -0.32s"></span>
-                <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style="animation-delay: -0.16s"></span>
-                <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
+                <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse" style="animation-delay: -0.32s"></span>
+                <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse" style="animation-delay: -0.16s"></span>
+                <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse"></span>
               </div>
-              <div v-else class="text-base leading-relaxed text-gray-800">
+              <div v-else class="text-base leading-relaxed text-[#1a1a1a]">
                 <MarkdownRenderer v-if="enableMarkdown && !msg.isTyping" :content="msg.displayContent" />
                 <div v-else class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
-                <div class="flex gap-3 pt-2 border-t border-gray-100">
-                  <el-button size="small" link @click="$emit('copy', msg.content)" class="text-sm text-gray-600 hover:text-gray-800">
-                    <el-icon>
+                <div class="flex gap-3 pt-3 border-t border-[#e5e5e5]">
+                  <el-button size="small" link @click="$emit('copy', msg.content)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
+                    <el-icon class="mr-1">
                       <DocumentCopy />
                     </el-icon>
                     复制内容
                   </el-button>
-                  <el-button size="small" link @click="$emit('regenerate', msg)" class="text-sm text-gray-600 hover:text-gray-800">
-                    <el-icon>
+                  <el-button size="small" link @click="$emit('regenerate', msg)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
+                    <el-icon class="mr-1">
                       <Refresh />
                     </el-icon>
                     重新生成
@@ -64,7 +66,7 @@
               </div>
             </template>
           </div>
-          <div class="text-xs text-gray-500 px-1">{{ msg.time }}</div>
+          <div class="text-xs text-[#999] px-1">{{ msg.time }}</div>
         </div>
       </div>
     </div>
@@ -73,7 +75,7 @@
 
 <script setup>
 import { ref, nextTick, watch } from 'vue'
-import { MagicStick, User, ChatDotRound, DocumentCopy, Refresh } from '@element-plus/icons-vue'
+import { User, ChatDotRound, DocumentCopy, Refresh } from '@element-plus/icons-vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
 const props = defineProps({

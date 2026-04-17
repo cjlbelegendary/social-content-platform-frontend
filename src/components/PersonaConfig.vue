@@ -1,19 +1,19 @@
 <template>
-  <el-collapse v-model="collapseActive" class="mb-4 border-none">
+  <el-collapse v-model="collapseActive" class="mb-4 border-none persona-collapse">
     <el-collapse-item name="persona">
       <template #title>
-        <div class="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <div class="flex items-center gap-2 text-sm font-medium text-[#666]">
           <el-icon><UserFilled /></el-icon>
           <span>人设配置</span>
-          <el-tag v-if="personaStore.hasPersona" size="small" type="success" class="ml-2">已配置</el-tag>
+          <el-tag v-if="personaStore.hasPersona" size="small" class="ml-2 bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]">已配置</el-tag>
         </div>
       </template>
       
-      <div class="p-4 bg-gray-50 rounded-lg">
+      <div class="p-4 bg-[#fafafa] rounded-xl">
         <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <div class="text-sm font-medium text-gray-700 mb-2">领域</div>
-            <el-select v-model="personaStore.domain" placeholder="请选择领域" class="w-full">
+            <div class="text-sm font-medium text-[#666] mb-2">领域</div>
+            <el-select v-model="personaStore.domain" placeholder="请选择领域" class="w-full persona-select">
               <el-option 
                 v-for="item in personaOptions.domain" 
                 :key="item.value" 
@@ -24,8 +24,8 @@
           </div>
           
           <div>
-            <div class="text-sm font-medium text-gray-700 mb-2">风格</div>
-            <el-select v-model="personaStore.style" placeholder="请选择风格" class="w-full">
+            <div class="text-sm font-medium text-[#666] mb-2">风格</div>
+            <el-select v-model="personaStore.style" placeholder="请选择风格" class="w-full persona-select">
               <el-option 
                 v-for="item in personaOptions.style" 
                 :key="item.value" 
@@ -36,8 +36,8 @@
           </div>
           
           <div>
-            <div class="text-sm font-medium text-gray-700 mb-2">语气</div>
-            <el-select v-model="personaStore.tone" placeholder="请选择语气" class="w-full">
+            <div class="text-sm font-medium text-[#666] mb-2">语气</div>
+            <el-select v-model="personaStore.tone" placeholder="请选择语气" class="w-full persona-select">
               <el-option 
                 v-for="item in personaOptions.tone" 
                 :key="item.value" 
@@ -49,10 +49,10 @@
         </div>
         
         <div class="flex gap-3">
-          <el-button type="primary" @click="handleSave" :loading="saving">
+          <el-button @click="handleSave" :loading="saving" class="save-btn rounded-xl bg-[#1a1a1a] text-white border-none hover:text-gray-100 hover:bg-[#333]">
             保存为我的人设
           </el-button>
-          <el-button @click="handleReset">
+          <el-button @click="handleReset" class="rounded-xl text-[#666] hover:text-[#1a1a1a] border-[#e5e5e5] hover:border-[#d5d5d5]">
             重置为默认
           </el-button>
         </div>
@@ -126,3 +126,39 @@ onMounted(() => {
   loadPersona()
 })
 </script>
+
+<style scoped>
+.persona-collapse :deep(.el-collapse-item__header) {
+  background: transparent;
+  border: none;
+  height: 40px;
+  line-height: 40px;
+}
+
+.persona-collapse :deep(.el-collapse-item__wrap) {
+  border: none;
+}
+
+.persona-collapse :deep(.el-collapse-item__content) {
+  padding-bottom: 0;
+}
+
+.persona-select :deep(.el-input__wrapper) {
+  border-radius: 8px;
+  border-color: #e5e5e5;
+  background: white;
+}
+
+.persona-select :deep(.el-input__wrapper:hover) {
+  border-color: #d5d5d5;
+}
+
+.persona-select :deep(.el-input__wrapper.is-focus) {
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
+}
+
+.save-btn :deep(.el-loading-spinner) {
+  color: white;
+}
+</style>

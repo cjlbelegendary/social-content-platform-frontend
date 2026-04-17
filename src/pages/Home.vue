@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-gray-100">
+  <div class="flex h-screen bg-[#fafafa]">
     <LeftSidebar
       :is-admin="userStore.isAdminUser"
       :chat-history="chatStore.chatHistory"
@@ -13,18 +13,18 @@
     />
 
     <div class="flex-1 flex flex-col bg-white">
-      <div class="p-3 px-6 bg-white border-b border-gray-200 flex justify-between items-center">
+      <div class="h-14 px-6 bg-white border-b border-[#e5e5e5] flex justify-between items-center">
         <div class="flex flex-col justify-center items-center flex-1">
-          <div class="text-base font-medium text-gray-800">{{ chatStore.currentTitle }}</div>
-          <div class="text-xs text-gray-500">内容由ai生成</div>
+          <div class="text-base font-semibold text-[#1a1a1a]">{{ chatStore.currentTitle }}</div>
+          <div class="text-xs text-[#999]">内容由AI生成</div>
         </div>
-        <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
-          <el-icon class="text-gray-600"><Document /></el-icon>
-          <span class="text-sm text-gray-600">Markdown</span>
+        <div class="flex items-center gap-2 px-4 py-2 bg-[#fafafa] rounded-xl border border-[#e5e5e5]">
+          <el-icon class="text-[#666]"><Document /></el-icon>
+          <span class="text-sm text-[#666]">Markdown</span>
           <el-switch 
             v-model="settingsStore.enableMarkdown" 
             size="small"
-            @change="settingsStore.toggleMarkdown"
+            style="--el-switch-on-color: #1a1a1a"
           />
         </div>
       </div>
