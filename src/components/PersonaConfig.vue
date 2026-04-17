@@ -5,7 +5,7 @@
         <div class="flex items-center gap-2 text-sm font-medium text-gray-700">
           <el-icon><UserFilled /></el-icon>
           <span>人设配置</span>
-          <el-tag v-if="hasPersona" size="small" type="success" class="ml-2">已配置</el-tag>
+          <el-tag v-if="personaStore.hasPersona" size="small" type="success" class="ml-2">已配置</el-tag>
         </div>
       </template>
       
@@ -13,7 +13,7 @@
         <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
             <div class="text-sm font-medium text-gray-700 mb-2">领域</div>
-            <el-select v-model="localForm.domain" placeholder="请选择领域" class="w-full">
+            <el-select v-model="personaStore.domain" placeholder="请选择领域" class="w-full">
               <el-option 
                 v-for="item in personaOptions.domain" 
                 :key="item.value" 
@@ -25,7 +25,7 @@
           
           <div>
             <div class="text-sm font-medium text-gray-700 mb-2">风格</div>
-            <el-select v-model="localForm.style" placeholder="请选择风格" class="w-full">
+            <el-select v-model="personaStore.style" placeholder="请选择风格" class="w-full">
               <el-option 
                 v-for="item in personaOptions.style" 
                 :key="item.value" 
@@ -37,7 +37,7 @@
           
           <div>
             <div class="text-sm font-medium text-gray-700 mb-2">语气</div>
-            <el-select v-model="localForm.tone" placeholder="请选择语气" class="w-full">
+            <el-select v-model="personaStore.tone" placeholder="请选择语气" class="w-full">
               <el-option 
                 v-for="item in personaOptions.tone" 
                 :key="item.value" 
@@ -62,39 +62,27 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UserFilled } from '@element-plus/icons-vue'
+import { usePersonaStore } from '@/stores/persona'
 import { getPersonaInfo, savePersona } from '@/api/persona'
 import { personaOptions } from '@/data/personaOptions'
 
-const props = defineProps({
-  modelValue: Object
-})
-
-const emit = defineEmits(['update:modelValue'])
+const personaStore = usePersonaStore()
 
 const collapseActive = ref([])
 const saving = ref(false)
-
-const localForm = reactive({
-  domain: '',
-  style: '',
-  tone: ''
-})
-
-const hasPersona = computed(() => {
-  return localForm.domain || localForm.style || localForm.tone
-})
 
 const loadPersona = async () => {
   try {
     const res = await getPersonaInfo()
     if (res.code === 200 && res.persona) {
-      localForm.domain = res.persona.domain || ''
-      localForm.style = res.persona.style || ''
-      localForm.tone = res.persona.tone || ''
-      emit('update:modelValue', { ...localForm })
+      personaStore.updatePersona({
+        domain: res.persona.domain || '',
+        style: res.persona.style || '',
+        tone: res.persona.tone || ''
+      })
     }
   } catch (error) {
     console.error('加载人设配置失败：', error)
@@ -102,7 +90,7 @@ const loadPersona = async () => {
 }
 
 const handleSave = async () => {
-  if (!localForm.domain || !localForm.style || !localForm.tone) {
+  if (!personaStore.domain || !personaStore.style || !personaStore.tone) {
     ElMessage.warning('请完整配置人设信息')
     return
   }
@@ -110,15 +98,14 @@ const handleSave = async () => {
   saving.value = true
   try {
     const res = await savePersona({
-      domain: localForm.domain,
-      style: localForm.style,
-      tone: localForm.tone,
+      domain: personaStore.domain,
+      style: personaStore.style,
+      tone: personaStore.tone,
       is_default: 1
     })
     
     if (res.code === 200) {
       ElMessage.success('保存人设配置成功')
-      emit('update:modelValue', { ...localForm })
     } else {
       ElMessage.error(res.msg || '保存失败')
     }
@@ -131,20 +118,11 @@ const handleSave = async () => {
 }
 
 const handleReset = () => {
-  localForm.domain = ''
-  localForm.style = ''
-  localForm.tone = ''
-  emit('update:modelValue', { ...localForm })
+  personaStore.reset()
   ElMessage.success('已重置为默认')
 }
 
-watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
-    localForm.domain = newVal.domain || ''
-    localForm.style = newVal.style || ''
-    localForm.tone = newVal.tone || ''
-  }
-}, { immediate: true })
-
-loadPersona()
+onMounted(() => {
+  loadPersona()
+})
 </script>

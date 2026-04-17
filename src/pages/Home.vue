@@ -1,13 +1,13 @@
 <template>
   <div class="flex h-screen bg-gray-100">
     <LeftSidebar
-      :is-admin="isAdmin"
-      :chat-history="chatHistory"
-      :current-index="currentChatIndex"
-      :loading="loadingHistory"
+      :is-admin="userStore.isAdminUser"
+      :chat-history="chatStore.chatHistory"
+      :current-index="chatStore.currentChatIndex"
+      :loading="chatStore.loadingHistory"
       @new-chat="startNewChat"
       @navigate="handleNavigate"
-      @switch-chat="switchChat"
+      @switch-chat="handleSwitchChat"
       @use-hotspot="useHotspot"
       @logout="handleLogout"
     />
@@ -15,20 +15,24 @@
     <div class="flex-1 flex flex-col bg-white">
       <div class="p-3 px-6 bg-white border-b border-gray-200 flex justify-between items-center">
         <div class="flex flex-col justify-center items-center flex-1">
-          <div class="text-base font-medium text-gray-800">{{ currentTitle }}</div>
+          <div class="text-base font-medium text-gray-800">{{ chatStore.currentTitle }}</div>
           <div class="text-xs text-gray-500">内容由ai生成</div>
         </div>
         <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
           <el-icon class="text-gray-600"><Document /></el-icon>
           <span class="text-sm text-gray-600">Markdown</span>
-          <el-switch v-model="enableMarkdown" size="small" />
+          <el-switch 
+            v-model="settingsStore.enableMarkdown" 
+            size="small"
+            @change="settingsStore.toggleMarkdown"
+          />
         </div>
       </div>
 
       <MessageList
         ref="messageListRef"
-        :messages="currentMessages"
-        :enable-markdown="enableMarkdown"
+        :messages="chatStore.currentMessages"
+        :enable-markdown="settingsStore.enableMarkdown"
         @use-prompt="useQuickPrompt"
         @copy="copyContent"
         @regenerate="regenerateContent"
@@ -36,12 +40,12 @@
 
       <InputArea
         v-model="userInput"
-        v-model:platform="currentPlatform"
-        :loading="loading"
+        v-model:platform="settingsStore.currentPlatform"
+        :loading="chatStore.loading"
         @send="handleSend"
       >
         <template #persona-config>
-          <PersonaConfig v-model="personaForm" />
+          <PersonaConfig />
         </template>
       </InputArea>
     </div>
@@ -49,53 +53,31 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
+import { reactive } from 'vue'
+
+import { useChatStore } from '@/stores/chat'
+import { useUserStore } from '@/stores/user'
+import { usePersonaStore } from '@/stores/persona'
+import { useSettingsStore } from '@/stores/settings'
+
 import LeftSidebar from '@/components/LeftSidebar.vue'
 import PersonaConfig from '@/components/PersonaConfig.vue'
 import MessageList from '@/components/MessageList.vue'
 import InputArea from '@/components/InputArea.vue'
-import { generateContentStream, getSessions, getSessionDetail } from '@/api/content'
-import { validateAdmin } from '@/api/admin'
-import { removeToken } from '@/utils/auth'
+import { generateContentStream } from '@/api/content'
 
 const router = useRouter()
 const messageListRef = ref(null)
-
-const currentPlatform = ref('小红书')
 const userInput = ref('')
-const loading = ref(false)
-const currentChatIndex = ref(-1)
-const chatHistory = ref([])
-const currentMessages = ref([])
-const loadingHistory = ref(false)
-const sessions = ref([])
-const isAdmin = ref(false)
-const enableMarkdown = ref(true)
-const personaForm = reactive({
-  domain: '',
-  style: '',
-  tone: ''
-})
 
-let streamController = null
-let animationFrame = null
-
-const currentTitle = computed(() => {
-  return currentChatIndex.value >= 0 && chatHistory.value.length > 0 
-    ? chatHistory.value[currentChatIndex.value].title 
-    : '社交内容创作助手'
-})
-
-const formatTime = (timeStr = '') => {
-  if (!timeStr) {
-    const now = new Date()
-    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-  }
-  return timeStr.split(' ')[1]?.substring(0, 5) || timeStr
-}
+const chatStore = useChatStore()
+const userStore = useUserStore()
+const personaStore = usePersonaStore()
+const settingsStore = useSettingsStore()
 
 const scrollToBottom = () => {
   if (messageListRef.value) {
@@ -114,144 +96,36 @@ const handleNavigate = (page) => {
   }
 }
 
-const checkAdminStatus = async () => {
-  try {
-    const response = await validateAdmin(false)
-    if (response.code === 200 && response.admin_info.is_admin) {
-      isAdmin.value = true
-    } else {
-      isAdmin.value = false
-    }
-  } catch (error) {
-    isAdmin.value = false
-  }
-}
-
-const loadHistoryFromBackend = async () => {
-  loadingHistory.value = true
-  try {
-    const res = await getSessions()
-    if (res.code === 200 && res.session_list) {
-      sessions.value = res.session_list
-      
-      const transformedHistory = []
-      res.session_list.forEach(session => {
-        transformedHistory.push({
-          id: session.session_id,
-          title: session.session_title,
-          time: formatTime(session.update_time),
-          session_id: session.session_id,
-          messages: []
-        })
-      })
-      chatHistory.value = transformedHistory
-
-      if (chatHistory.value.length > 0) {
-        currentChatIndex.value = 0
-        await loadSessionDetail(chatHistory.value[0].session_id)
-      }
-    } else {
-      chatHistory.value = []
-      currentMessages.value = []
-    }
-  } catch (error) {
-    console.error('加载历史对话失败：', error)
-    ElMessage.warning('加载历史创作失败，仅显示新创作内容')
-    chatHistory.value = []
-  } finally {
-    loadingHistory.value = false
-  }
-}
-
-const loadSessionDetail = async (sessionId) => {
-  try {
-    const res = await getSessionDetail(sessionId)
-    if (res.code === 200 && res.session) {
-      const session = res.session
-      const messages = []
-      session.contents.forEach(content => {
-        messages.push({
-          role: 'user',
-          content: content.title,
-          platform: content.platform,
-          time: formatTime(content.create_time),
-          originalTime: content.create_time
-        })
-        messages.push({
-          role: 'ai',
-          content: content.content,
-          displayContent: content.content,
-          loading: false,
-          time: formatTime(content.create_time),
-          originalTime: content.create_time
-        })
-      })
-      messages.sort((a, b) => new Date(a.originalTime) - new Date(b.originalTime))
-      currentMessages.value = messages
-      scrollToBottom()
-    }
-  } catch (error) {
-    console.error('加载会话详情失败：', error)
-    ElMessage.warning('加载会话详情失败')
-  }
-}
-
 const handleSend = async () => {
   if (!userInput.value.trim()) {
     ElMessage.warning('请输入创作需求')
     return
   }
 
-  if (animationFrame) {
-    cancelAnimationFrame(animationFrame)
-    animationFrame = null
-  }
-  if (streamController) {
-    streamController.abort()
-    streamController = null
-  }
+  chatStore.clearStreamController()
 
-  const now = new Date().toISOString()
-  
-  const userMsg = {
-    role: 'user',
+  chatStore.addUserMessage({
     content: userInput.value.trim(),
-    platform: currentPlatform.value,
-    time: formatTime(),
-    originalTime: now
-  }
-  currentMessages.value.push(userMsg)
-
-  const aiMsg = reactive({
-    role: 'ai',
-    content: '',
-    displayContent: '',
-    loading: true,
-    isTyping: false,
-    time: formatTime(),
-    originalTime: now
+    platform: settingsStore.currentPlatform
   })
-  currentMessages.value.push(aiMsg)
+
+  const aiMsg = reactive(chatStore.addAIMessage({
+    loading: true,
+    isTyping: false
+  }))
 
   const inputPrompt = userInput.value.trim()
   userInput.value = ''
   scrollToBottom()
 
-  loading.value = true
-  
-  const currentChat = chatHistory.value[currentChatIndex.value]
-  const sessionId = currentChat ? currentChat.session_id : null
+  chatStore.setLoading(true)
   
   const streamData = {
     prompt: inputPrompt,
-    platform: currentPlatform.value,
+    platform: settingsStore.currentPlatform,
     title: inputPrompt,
-    session_id: sessionId,
-    persona: {
-      domain: personaForm.domain,
-      style: personaForm.style,
-      tone: personaForm.tone
-    }
+    session_id: chatStore.currentSessionId,
+    persona: personaStore.personaObject
   }
 
   let fullContent = ''
@@ -262,7 +136,7 @@ const handleSend = async () => {
     
     if (remaining <= 0) {
       aiMsg.isTyping = false
-      animationFrame = null
+      chatStore.setAnimationFrame(null)
       return
     }
     
@@ -275,10 +149,10 @@ const handleSend = async () => {
     aiMsg.displayContent = fullContent.substring(0, displayLength)
     scrollToBottom()
     
-    animationFrame = requestAnimationFrame(animate)
+    chatStore.setAnimationFrame(requestAnimationFrame(animate))
   }
 
-  streamController = generateContentStream(
+  const controller = generateContentStream(
     streamData,
     (data) => { 
       if (data.code === 200) {
@@ -287,7 +161,7 @@ const handleSend = async () => {
           aiMsg.content = fullContent
           aiMsg.loading = false
           
-          if (!animationFrame) {
+          if (!chatStore.animationFrame) {
             animate()
           }
         }
@@ -296,8 +170,8 @@ const handleSend = async () => {
         aiMsg.loading = false
         aiMsg.content = '生成失败，请稍后重试'
         aiMsg.displayContent = aiMsg.content
-        loading.value = false
-        streamController = null
+        chatStore.setLoading(false)
+        chatStore.setStreamController(null)
       }
     },
     (error) => {
@@ -306,52 +180,30 @@ const handleSend = async () => {
       aiMsg.content = '生成异常，请稍后重试'
       aiMsg.displayContent = aiMsg.content
       console.error('生成异常：', error)
-      loading.value = false
-      streamController = null
+      chatStore.setLoading(false)
+      chatStore.setStreamController(null)
     },
-    (data) => {
+    async (data) => {
       displayLength = fullContent.length
       aiMsg.displayContent = fullContent
       aiMsg.loading = false
       aiMsg.isTyping = false
       scrollToBottom()
       
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame)
-        animationFrame = null
+      if (chatStore.animationFrame) {
+        cancelAnimationFrame(chatStore.animationFrame)
+        chatStore.setAnimationFrame(null)
       }
       
       if (fullContent) {
-        loadSessionListOnly()
-        currentChatIndex.value = 0
+        await chatStore.loadSessionListOnly()
       }
-      loading.value = false
-      streamController = null
+      chatStore.setLoading(false)
+      chatStore.setStreamController(null)
     }
   )
-}
-
-const loadSessionListOnly = async () => {
-  try {
-    const res = await getSessions()
-    if (res.code === 200 && res.session_list) {
-      sessions.value = res.session_list
-      
-      const transformedHistory = []
-      res.session_list.forEach(session => {
-        transformedHistory.push({
-          id: session.session_id,
-          title: session.session_title,
-          time: formatTime(session.update_time),
-          session_id: session.session_id,
-          messages: []
-        })
-      })
-      chatHistory.value = transformedHistory
-    }
-  } catch (error) {
-    console.error('加载会话列表失败：', error)
-  }
+  
+  chatStore.setStreamController(controller)
 }
 
 const useQuickPrompt = (prompt) => {
@@ -361,7 +213,7 @@ const useQuickPrompt = (prompt) => {
 const useHotspot = (hotspot) => {
   const content = `基于热点：【${hotspot.title}】
 关键词：${hotspot.keywords}
-请生成一篇适合${personaForm.domain || '社交平台'}的社交文案`
+请生成一篇适合${personaStore.domain || '社交平台'}的社交文案`
   userInput.value = content
   ElMessage.success('已填入输入框')
 }
@@ -375,26 +227,27 @@ const copyContent = (content) => {
 }
 
 const regenerateContent = (msg) => {
-  const userMsgIndex = currentMessages.value.findIndex(m => m.role === 'user' && currentMessages.value.indexOf(m) < currentMessages.value.indexOf(msg))
+  const messages = chatStore.currentMessages
+  const msgIndex = messages.indexOf(msg)
+  const userMsgIndex = messages.findIndex((m, i) => m.role === 'user' && i < msgIndex)
+  
   if (userMsgIndex !== -1) {
-    const userMsg = currentMessages.value[userMsgIndex]
+    const userMsg = messages[userMsgIndex]
     userInput.value = userMsg.content
-    currentPlatform.value = userMsg.platform
-    currentMessages.value = currentMessages.value.slice(0, userMsgIndex + 1)
+    settingsStore.setPlatform(userMsg.platform)
+    chatStore.currentMessages = messages.slice(0, userMsgIndex + 1)
     handleSend()
   }
 }
 
 const startNewChat = () => {
-  currentChatIndex.value = -1
-  currentMessages.value = []
+  chatStore.startNewChat()
   userInput.value = ''
 }
 
-const switchChat = async (index) => {
-  currentChatIndex.value = index
-  const sessionId = chatHistory.value[index].session_id
-  await loadSessionDetail(sessionId)
+const handleSwitchChat = async (index) => {
+  await chatStore.switchChat(index)
+  scrollToBottom()
 }
 
 const handleLogout = () => {
@@ -407,26 +260,19 @@ const handleLogout = () => {
       type: 'warning'
     }
   ).then(() => {
-    removeToken()
+    userStore.logout()
     router.push('/login')
     ElMessage.success('已退出登录')
   })
 }
 
-onMounted(() => {
-  loadHistoryFromBackend()
-  checkAdminStatus()
+onMounted(async () => {
+  await userStore.checkAdminStatus()
+  await chatStore.loadHistory()
   scrollToBottom()
 })
 
 onUnmounted(() => {
-  if (animationFrame) {
-    cancelAnimationFrame(animationFrame)
-    animationFrame = null
-  }
-  if (streamController) {
-    streamController.abort()
-    streamController = null
-  }
+  chatStore.clearStreamController()
 })
 </script>
