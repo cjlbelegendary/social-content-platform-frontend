@@ -1,178 +1,193 @@
 <template>
-  <div class="list-container">
-    <el-page-header content="我的内容列表" @back="$router.push('/home')" class="page-header" />
-
-    <FilterTable
-      :filter-fields="filterFields"
-      :filter-model="filterForm"
-      :date-range="dateRange"
-      @update:date-range="dateRange = $event"
-      :columns="columns"
-      :table-data="contentList"
-      :loading="loading"
-      :pagination="pagination"
-      @update:pagination="pagination = $event"
-      :selectable="true"
-      @search="handleSearch"
-      @reset="handleReset"
-      @selection-change="handleSelectionChange"
-      @row-click="handleRowClick"
-    >
-      <template #table-header>
-        <el-button
-          type="primary"
-          class="bg-green-500 hover:bg-green-600"
-          :disabled="selectedContents.length === 0"
-          @click="handleBatchSchedule"
-        >
-          批量创建排期 ({{ selectedContents.length }})
-        </el-button>
-      </template>
-
-      <template #column-platform="{ row }">
-        <el-tag class="bg-blue-50 text-blue-600 border-blue-200">{{ row.platform }}</el-tag>
-      </template>
-
-      <template #operation="{ row }">
-        <el-button type="primary" link @click.stop="handleView(row)">查看详情</el-button>
-        <el-button type="success" link @click.stop="handleCreateSchedule(row)">创建排期</el-button>
-      </template>
-    </FilterTable>
-
-    <el-dialog v-model="dialogVisible" title="内容详情" width="800px" destroy-on-close>
-      <el-input v-model="currentContent" type="textarea" :rows="18" readonly class="detail-textarea" />
-      <template #footer>
-        <el-button @click="dialogVisible = false" class="text-gray-600">关闭</el-button>
-        <el-button class="bg-blue-500 text-white hover:bg-blue-600" @click="handleCopyDetail">
-          复制内容
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="scheduleDialogVisible" title="创建排期" width="500px" destroy-on-close>
-      <el-form :model="scheduleForm" label-width="100px">
-        <el-form-item label="发布平台">
-          <el-select v-model="scheduleForm.platform" placeholder="请选择发布平台" style="width: 100%">
-            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="发布时间">
-          <el-date-picker
-            v-model="scheduleForm.publish_time"
-            type="datetime"
-            placeholder="选择日期时间"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="排期备注">
-          <el-input
-            v-model="scheduleForm.schedule_note"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入排期备注，如：小红书早8点发布"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="scheduleDialogVisible = false" class="text-gray-600">取消</el-button>
-        <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveSchedule" :loading="scheduleLoading">
-          保存
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="batchScheduleDialogVisible" title="批量创建排期" width="700px" destroy-on-close>
-      <div class="batch-info">
-        <span>已选择 {{ selectedContents.length }} 条内容</span>
-      </div>
-      
-      <el-form :model="batchScheduleForm" label-width="100px" class="batch-form">
-        <el-form-item label="统一平台">
-          <el-select v-model="batchScheduleForm.platform" placeholder="请选择发布平台" style="width: 100%" @change="handlePlatformChange">
-            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="统一时间">
-          <el-date-picker
-            v-model="batchScheduleForm.publish_time"
-            type="datetime"
-            placeholder="选择日期时间"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-            @change="handleTimeChange"
-          />
-        </el-form-item>
-        <el-form-item label="统一备注">
-          <el-input
-            v-model="batchScheduleForm.schedule_note"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入排期备注（可选）"
-            @input="handleNoteChange"
-          />
-        </el-form-item>
-      </el-form>
-
-      <el-table :data="batchScheduleTableData" border style="width: 100%; margin-top: 20px;">
-        <el-table-column prop="title" label="内容标题" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="platform" label="平台" width="100" align="center">
-          <template #default="scope">
-            <el-select
-              v-model="scope.row.platform"
-              placeholder="选择平台"
-              style="width: 100px"
-              size="small"
+  <div class="h-screen bg-[#fafafa]">
+    <div class="h-14 px-6 bg-white border-b border-[#e5e5e5] flex items-center">
+      <el-page-header @back="$router.push('/home')">
+        <template #content>
+          <span class="text-lg font-semibold text-[#1a1a1a]">创作历史</span>
+        </template>
+      </el-page-header>
+    </div>
+    
+    <div class="p-6 px-10">
+      <div class="bg-white rounded-2xl border border-[#e5e5e5] overflow-hidden max-w-[1400px] mx-auto">
+        <div class="p-4 border-b border-[#e5e5e5] flex items-center gap-4 flex-wrap">
+          <div class="flex gap-1 p-1 bg-[#f5f5f5] rounded-lg">
+            <button
+              v-for="tab in typeTabs"
+              :key="tab.value"
+              @click="activeType = tab.value"
+              class="px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200"
+              :class="activeType === tab.value ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#999] hover:text-[#666]'"
             >
-              <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column prop="publish_time" label="发布时间" width="180" align="center">
-          <template #default="scope">
-            <el-date-picker
-              v-model="scope.row.publish_time"
-              type="datetime"
-              placeholder="选择时间"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              style="width: 160px"
-              size="small"
+              {{ tab.label }}
+            </button>
+          </div>
+          
+          <el-select
+            v-model="filterForm.platform"
+            placeholder="平台"
+            clearable
+            class="w-28"
+          >
+            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+          
+          <el-date-picker
+            v-model="dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            class="w-56"
+          />
+          
+          <el-input
+            v-model="filterForm.keyword"
+            placeholder="搜索关键词"
+            clearable
+            class="w-48"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          
+          <el-button type="primary" class="bg-[#1a1a1a] border-none hover:bg-[#333]" @click="handleSearch">
+            搜索
+          </el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
+        
+        <div class="min-h-[400px] relative">
+          <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/50">
+            <el-icon class="text-4xl text-[#999] animate-spin"><Loading /></el-icon>
+          </div>
+          
+          <div v-else-if="contentList.length === 0" class="flex flex-col items-center justify-center py-20 text-[#999]">
+            <el-icon class="text-5xl mb-4"><Document /></el-icon>
+            <p>暂无内容</p>
+          </div>
+          
+          <div v-else class="p-4 grid grid-cols-2 gap-4">
+            <div
+              v-for="item in contentList"
+              :key="`${item.type}-${item.id}`"
+              class="p-4 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md"
+              :class="selectedItems.includes(item) ? 'border-[#1a1a1a] bg-[#fafafa]' : 'border-[#e5e5e5] bg-white hover:border-[#d5d5d5]'"
+              @click="toggleSelect(item)"
+            >
+              <div class="flex items-start gap-3">
+                <el-checkbox
+                  :model-value="selectedItems.includes(item)"
+                  @change="toggleSelect(item)"
+                  @click.stop
+                />
+                
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-2">
+                    <el-tag
+                      :type="item.type === 'content' ? 'primary' : 'success'"
+                      size="small"
+                      class="rounded-md"
+                    >
+                      {{ item.type === 'content' ? '文案' : '图片' }}
+                    </el-tag>
+                    <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md">{{ item.platform }}</el-tag>
+                    <el-tag
+                      v-if="item.is_in_package"
+                      type="warning"
+                      size="small"
+                      class="rounded-md"
+                    >
+                      已在内容包
+                    </el-tag>
+                  </div>
+                  
+                  <template v-if="item.type === 'content'">
+                    <div class="text-sm text-[#333] line-clamp-2 mb-2">{{ item.content || item.title }}</div>
+                  </template>
+                  <template v-else>
+                    <div class="flex items-center gap-3 mb-2">
+                      <img
+                        :src="item.url"
+                        class="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                      />
+                      <div class="flex-1 min-w-0">
+                        <div class="text-sm text-[#333] line-clamp-2">{{ item.prompt || '图片描述' }}</div>
+                        <div class="text-xs text-[#999] mt-1">{{ item.style }}</div>
+                      </div>
+                    </div>
+                  </template>
+                  
+                  <div class="text-xs text-[#999]">{{ item.create_time_str }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="p-4 border-t border-[#e5e5e5] flex items-center justify-between">
+          <div class="text-sm text-[#666]">
+            已选择 <span class="font-semibold text-[#1a1a1a]">{{ selectedItems.length }}</span> 项
+          </div>
+          
+          <div class="flex items-center gap-4">
+            <el-pagination
+              v-model:current-page="pagination.page"
+              v-model:page-size="pagination.page_size"
+              :total="pagination.total"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              @size-change="loadContentList"
+              @current-change="loadContentList"
             />
-          </template>
-        </el-table-column>
-        <el-table-column prop="schedule_note" label="备注" width="120">
-          <template #default="scope">
-            <el-input
-              v-model="scope.row.schedule_note"
-              placeholder="备注"
-              size="small"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <template #footer>
-        <el-button @click="batchScheduleDialogVisible = false" class="text-gray-600">取消</el-button>
-        <el-button type="primary" class="bg-green-500 hover:bg-green-600" @click="handleSaveBatchSchedule" :loading="batchScheduleLoading">
-          批量创建
-        </el-button>
-      </template>
-    </el-dialog>
+            
+            <el-button
+              type="primary"
+              class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+              :disabled="selectedItems.length === 0"
+              @click="showCreatePackageDialog = true"
+            >
+              创建内容包
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <CreatePackageDialog
+      v-model="showCreatePackageDialog"
+      :selected-items="selectedItemsForPackage"
+      @success="handlePackageCreated"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import FilterTable from '@/components/FilterTable.vue'
-import { getContents, getSessions, createSchedule, batchCreateSchedule } from '@/api/content'
+import { Search, Loading, Document } from '@element-plus/icons-vue'
+import { getContents } from '@/api/content'
+import CreatePackageDialog from '@/components/CreatePackageDialog.vue'
+
+const router = useRouter()
 
 const loading = ref(false)
 const contentList = ref([])
-const sessionList = ref([])
-const dialogVisible = ref(false)
-const currentContent = ref('')
+const selectedItems = ref([])
+const showCreatePackageDialog = ref(false)
 const dateRange = ref([])
+
+const activeType = ref('all')
+
+const typeTabs = [
+  { label: '全部', value: 'all' },
+  { label: '文案', value: 'content' },
+  { label: '图片', value: 'image' }
+]
 
 const platformOptions = [
   { label: '小红书', value: '小红书' },
@@ -181,33 +196,9 @@ const platformOptions = [
   { label: '抖音', value: '抖音' }
 ]
 
-const selectedContents = ref([])
-
-const scheduleDialogVisible = ref(false)
-const scheduleLoading = ref(false)
-const currentScheduleContent = ref(null)
-
-const scheduleForm = reactive({
-  platform: '',
-  publish_time: '',
-  schedule_note: ''
-})
-
-const batchScheduleDialogVisible = ref(false)
-const batchScheduleLoading = ref(false)
-const batchScheduleTableData = ref([])
-
-const batchScheduleForm = reactive({
-  platform: '',
-  publish_time: '',
-  schedule_note: ''
-})
-
 const filterForm = reactive({
-  platform: [],
-  session_id: [],
-  title: '',
-  content: ''
+  platform: '',
+  keyword: ''
 })
 
 const pagination = reactive({
@@ -216,96 +207,46 @@ const pagination = reactive({
   total: 0
 })
 
-const filterFields = computed(() => [
-  {
-    prop: 'platform',
-    label: '平台',
-    type: 'select',
-    options: platformOptions,
-    multiple: true,
-    width: '150px'
-  },
-  {
-    prop: 'session_id',
-    label: '会话',
-    type: 'select',
-    options: sessionList.value.map(s => ({ label: s.session_title, value: s.session_id })),
-    multiple: true,
-    width: '200px'
-  },
-  {
-    prop: 'dateRange',
-    label: '时间范围',
-    type: 'daterange',
-    width: '240px'
-  },
-  {
-    prop: 'title',
-    label: '标题',
-    type: 'input',
-    width: '180px'
-  },
-  {
-    prop: 'content',
-    label: '内容',
-    type: 'input',
-    width: '180px'
-  }
-])
-
-const columns = [
-  { prop: 'id', label: 'ID', width: 80, align: 'center' },
-  { prop: 'title', label: '标题', minWidth: 200 },
-  { prop: 'session_title', label: '会话', minWidth: 150 },
-  { prop: 'platform', label: '发布平台', width: 120, align: 'center' },
-  { prop: 'create_time', label: '创建时间', width: 200, align: 'center' }
-]
-
-const loadSessionList = async () => {
-  try {
-    const res = await getSessions()
-    if (res.code === 200 && res.session_list) {
-      sessionList.value = res.session_list
-    }
-  } catch (error) {
-    console.error('加载会话列表失败：', error)
-  }
-}
+const selectedItemsForPackage = computed(() => {
+  return selectedItems.value.map(item => ({
+    item_type: item.type,
+    item_id: item.id,
+    content: item.content,
+    title: item.title,
+    platform: item.platform,
+    url: item.url,
+    prompt: item.prompt,
+    style: item.style,
+    size: item.size
+  }))
+})
 
 const loadContentList = async () => {
   try {
     loading.value = true
     const params = {
+      type: activeType.value,
       page: pagination.page,
-      page_size: pagination.page_size
+      size: pagination.page_size
     }
-
-    if (filterForm.platform && filterForm.platform.length > 0) {
+    
+    if (filterForm.platform) {
       params.platform = filterForm.platform
     }
-    if (filterForm.session_id && filterForm.session_id.length > 0) {
-      params.session_id = filterForm.session_id
-    }
-    if (filterForm.title) {
-      params.title = filterForm.title
-    }
-    if (filterForm.content) {
-      params.content = filterForm.content
+    if (filterForm.keyword) {
+      params.keyword = filterForm.keyword
     }
     if (dateRange.value && dateRange.value.length === 2) {
       params.start_time = dateRange.value[0]
       params.end_time = dateRange.value[1]
     }
-
+    
     const res = await getContents(params)
     if (res.code === 200) {
-      contentList.value = res.content_list || []
-      pagination.total = res.total || 0
-      if (contentList.value.length === 0) {
-        ElMessage.info('暂无生成的内容，请先去生成')
-      }
+      contentList.value = res.data?.list || []
+      pagination.total = res.data?.total || 0
     } else {
-      ElMessage.error(res.msg || '查询内容列表失败')
+      ElMessage.error(res.msg || '查询失败')
     }
   } catch (error) {
     ElMessage.error('查询异常，请稍后重试')
@@ -321,173 +262,41 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-  filterForm.platform = []
-  filterForm.session_id = []
-  filterForm.title = ''
-  filterForm.content = ''
+  filterForm.platform = ''
+  filterForm.keyword = ''
   dateRange.value = []
+  activeType.value = 'all'
   pagination.page = 1
   loadContentList()
 }
 
-const handleView = (row) => {
-  currentContent.value = row.content
-  dialogVisible.value = true
-}
-
-const handleRowClick = (row) => {
-  handleView(row)
-}
-
-const handleSelectionChange = (selection) => {
-  selectedContents.value = selection
-}
-
-const handleCopyDetail = () => {
-  navigator.clipboard.writeText(currentContent.value).then(() => {
-    ElMessage.success('内容已复制到剪贴板！')
-  }).catch(() => {
-    ElMessage.error('复制失败，请手动复制')
-  })
-}
-
-const handleCreateSchedule = (row) => {
-  currentScheduleContent.value = row
-  scheduleForm.platform = row.platform || ''
-  scheduleForm.publish_time = ''
-  scheduleForm.schedule_note = ''
-  scheduleDialogVisible.value = true
-}
-
-const handleSaveSchedule = async () => {
-  if (!scheduleForm.platform) {
-    ElMessage.warning('请选择发布平台')
-    return
-  }
-  if (!scheduleForm.publish_time) {
-    ElMessage.warning('请选择发布时间')
-    return
-  }
-
-  try {
-    scheduleLoading.value = true
-    const params = {
-      content_id: currentScheduleContent.value.id,
-      platform: scheduleForm.platform,
-      publish_time: scheduleForm.publish_time,
-      schedule_note: scheduleForm.schedule_note
-    }
-
-    const res = await createSchedule(params)
-    if (res.code === 200) {
-      ElMessage.success('排期创建成功')
-      scheduleDialogVisible.value = false
-    } else {
-      ElMessage.error(res.msg || '排期创建失败')
-    }
-  } catch (error) {
-    ElMessage.error('排期创建异常，请稍后重试')
-    console.error('排期创建失败：', error)
-  } finally {
-    scheduleLoading.value = false
+const toggleSelect = (item) => {
+  const index = selectedItems.value.findIndex(
+    i => i.type === item.type && i.id === item.id
+  )
+  if (index > -1) {
+    selectedItems.value.splice(index, 1)
+  } else {
+    selectedItems.value.push(item)
   }
 }
 
-const handleBatchSchedule = () => {
-  batchScheduleTableData.value = selectedContents.value.map(item => ({
-    content_id: item.id,
-    title: item.title,
-    platform: item.platform || '',
-    publish_time: '',
-    schedule_note: ''
-  }))
-  batchScheduleForm.platform = ''
-  batchScheduleForm.publish_time = ''
-  batchScheduleForm.schedule_note = ''
-  batchScheduleDialogVisible.value = true
-}
-
-const handlePlatformChange = (val) => {
-  batchScheduleTableData.value.forEach(item => {
-    item.platform = val
-  })
-}
-
-const handleTimeChange = (val) => {
-  batchScheduleTableData.value.forEach(item => {
-    item.publish_time = val
-  })
-}
-
-const handleNoteChange = () => {
-  batchScheduleTableData.value.forEach(item => {
-    item.schedule_note = batchScheduleForm.schedule_note
-  })
-}
-
-const handleSaveBatchSchedule = async () => {
-  const invalidItems = batchScheduleTableData.value.filter(item => !item.platform || !item.publish_time)
-  if (invalidItems.length > 0) {
-    ElMessage.warning('请确保每条内容都已选择平台和发布时间')
-    return
-  }
-
-  try {
-    batchScheduleLoading.value = true
-    const schedules = batchScheduleTableData.value.map(item => ({
-      content_id: item.content_id,
-      platform: item.platform,
-      publish_time: item.publish_time,
-      schedule_note: item.schedule_note
-    }))
-
-    const res = await batchCreateSchedule({ schedules })
-    if (res.code === 200) {
-      ElMessage.success(res.msg || '批量创建排期成功')
-      batchScheduleDialogVisible.value = false
-      selectedContents.value = []
-    } else {
-      ElMessage.error(res.msg || '批量创建排期失败')
-    }
-  } catch (error) {
-    ElMessage.error('批量创建排期异常，请稍后重试')
-    console.error('批量创建排期失败：', error)
-  } finally {
-    batchScheduleLoading.value = false
-  }
+const handlePackageCreated = () => {
+  selectedItems.value = []
+  loadContentList()
+  router.push('/package-list')
 }
 
 onMounted(() => {
-  loadSessionList()
   loadContentList()
 })
 </script>
 
 <style scoped>
-.list-container {
-  padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.page-header {
-  margin-bottom: 20px;
-}
-
-.detail-textarea {
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.batch-info {
-  margin-bottom: 15px;
-  padding: 10px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-  color: #606266;
-}
-
-.batch-form {
-  margin-bottom: 10px;
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

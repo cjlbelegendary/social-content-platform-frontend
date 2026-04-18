@@ -18,14 +18,25 @@
           <div class="text-base font-semibold text-[#1a1a1a]">{{ chatStore.currentTitle }}</div>
           <div class="text-xs text-[#999]">内容由AI生成</div>
         </div>
-        <div class="flex items-center gap-2 px-4 py-2 bg-[#fafafa] rounded-xl border border-[#e5e5e5]">
-          <el-icon class="text-[#666]"><Document /></el-icon>
-          <span class="text-sm text-[#666]">Markdown</span>
-          <el-switch 
-            v-model="settingsStore.enableMarkdown" 
+        <div class="flex items-center gap-3">
+          <el-button
+            v-if="!messageListRef?.selectMode && hasValidMessages"
             size="small"
-            style="--el-switch-on-color: #1a1a1a"
-          />
+            @click="messageListRef?.enterSelectMode()"
+            class="rounded-lg border-[#e5e5e5] text-[#666] hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
+          >
+            <el-icon class="mr-1"><FolderAdd /></el-icon>
+            创建内容包
+          </el-button>
+          <div class="flex items-center gap-2 px-4 py-2 bg-[#fafafa] rounded-xl border border-[#e5e5e5]">
+            <el-icon class="text-[#666]"><Document /></el-icon>
+            <span class="text-sm text-[#666]">Markdown</span>
+            <el-switch 
+              v-model="settingsStore.enableMarkdown" 
+              size="small"
+              style="--el-switch-on-color: #1a1a1a"
+            />
+          </div>
         </div>
       </div>
 
@@ -38,10 +49,11 @@
         @regenerate="regenerateContent"
         @generate-image="handleGenerateImage"
         @regenerate-image="handleRegenerateImage"
-        class="flex-1 pb-[200px]"
+        @create-package="handleCreatePackage"
+        :class="messageListRef?.selectMode ? '' : 'pb-[200px]'"
       />
 
-      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pointer-events-none">
+      <div v-if="!messageListRef?.selectMode" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pointer-events-none">
         <div class="pointer-events-auto">
           <InputArea
             v-model="userInput"
@@ -59,14 +71,20 @@
         </div>
       </div>
     </div>
+    
+    <CreatePackageDialog
+      v-model="showCreatePackageDialog"
+      :selected-items="selectedPackageItems"
+      @success="handlePackageCreated"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document } from '@element-plus/icons-vue'
+import { Document, FolderAdd } from '@element-plus/icons-vue'
 
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
@@ -77,6 +95,7 @@ import LeftSidebar from '@/components/LeftSidebar.vue'
 import PersonaConfig from '@/components/PersonaConfig.vue'
 import MessageList from '@/components/MessageList.vue'
 import InputArea from '@/components/InputArea.vue'
+import CreatePackageDialog from '@/components/CreatePackageDialog.vue'
 import { generateContentStream } from '@/api/content'
 import { generateImage, regenerateImage, generateImageFromContent } from '@/api/image'
 
@@ -86,11 +105,19 @@ const userInput = ref('')
 const generateMode = ref('text')
 const imageStyle = ref('清新自然')
 const imageSize = ref('1:1')
+const showCreatePackageDialog = ref(false)
+const selectedPackageItems = ref([])
 
 const chatStore = useChatStore()
 const userStore = useUserStore()
 const personaStore = usePersonaStore()
 const settingsStore = useSettingsStore()
+
+const hasValidMessages = computed(() => {
+  return chatStore.currentMessages.some(msg => 
+    msg.role === 'ai' && !msg.loading && (msg.type !== 'image' || !msg.imageLoading)
+  )
+})
 
 const scrollToBottom = () => {
   if (messageListRef.value) {
@@ -101,6 +128,7 @@ const scrollToBottom = () => {
 const handleNavigate = (page) => {
   const routes = {
     'content-list': '/content-list',
+    'package-list': '/package-list',
     'user-list': '/admin/user-list',
     'schedule': '/schedule'
   }
@@ -215,6 +243,9 @@ const handleSend = async (data) => {
       
       if (fullContent) {
         await chatStore.loadSessionListOnly()
+        if (chatStore.currentSessionId) {
+          await chatStore.loadSessionDetail(chatStore.currentSessionId)
+        }
       }
       chatStore.setLoading(false)
       chatStore.setStreamController(null)
@@ -446,6 +477,17 @@ const handleLogout = () => {
     router.push('/login')
     ElMessage.success('已退出登录')
   })
+}
+
+const handleCreatePackage = (items) => {
+  selectedPackageItems.value = items
+  showCreatePackageDialog.value = true
+}
+
+const handlePackageCreated = () => {
+  showCreatePackageDialog.value = false
+  selectedPackageItems.value = []
+  ElMessage.success('内容包创建成功')
 }
 
 onMounted(async () => {

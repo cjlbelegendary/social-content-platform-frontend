@@ -102,6 +102,8 @@ export const useChatStore = defineStore('chat', {
                 displayContent: item.content,
                 loading: false,
                 type: 'text',
+                contentId: item.id,
+                platform: item.platform,
                 time: this.formatTime(item.create_time_str || item.create_time),
                 originalTime: item.create_time_str || item.create_time
               })
@@ -120,7 +122,7 @@ export const useChatStore = defineStore('chat', {
                 loading: false,
                 imageLoading: false,
                 imageInfo: {
-                  imageId: item.image_id,
+                  imageId: item.id,
                   url: item.url,
                   prompt: item.prompt,
                   style: item.style,

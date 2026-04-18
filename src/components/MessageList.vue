@@ -33,56 +33,96 @@
           </el-icon>
         </div>
         <div class="max-w-[80%]">
-          <div class="p-4 rounded-2xl mb-1" :class="msg.role === 'user' ? 'bg-[#f0f0f0] text-[#333]' : 'bg-white border border-[#e5e5e5]'">
-            <template v-if="msg.role === 'user'">
-              <div class="flex items-center gap-2">
-                <div class="flex-1 text-base leading-relaxed">{{ msg.content }}</div>
-                <el-tag size="small" class="bg-white text-[#666] border-[#e5e5e5]">{{ msg.platform }}</el-tag>
+          <div class="flex items-start gap-2">
+            <el-checkbox
+              v-if="selectMode && msg.role === 'ai' && !msg.loading && (msg.type !== 'image' || !msg.imageLoading)"
+              :model-value="isSelected(msg)"
+              @change="toggleSelect(msg)"
+              class="mt-3 flex-shrink-0"
+            />
+            <div class="flex-1 min-w-0">
+              <div class="p-4 rounded-2xl mb-1" :class="[
+                msg.role === 'user' ? 'bg-[#f0f0f0] text-[#333]' : 'bg-white border border-[#e5e5e5]',
+                isSelected(msg) && selectMode ? 'ring-2 ring-[#1a1a1a]' : ''
+              ]">
+                <template v-if="msg.role === 'user'">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 text-base leading-relaxed">{{ msg.content }}</div>
+                    <el-tag size="small" class="bg-white text-[#666] border-[#e5e5e5]">{{ msg.platform }}</el-tag>
+                  </div>
+                </template>
+                <template v-else>
+                  <div v-if="msg.loading" class="flex gap-1.5 py-2">
+                    <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse" style="animation-delay: -0.32s"></span>
+                    <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse" style="animation-delay: -0.16s"></span>
+                    <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse"></span>
+                  </div>
+                  
+                  <template v-else-if="msg.type === 'image'">
+                    <ImageMessage 
+                      :image-info="msg.imageInfo" 
+                      :loading="msg.imageLoading"
+                      @preview="handlePreview(msg.imageInfo)"
+                      @regenerate="$emit('regenerate', msg)"
+                    />
+                  </template>
+                  
+                  <div v-else class="text-base leading-relaxed text-[#1a1a1a]">
+                    <MarkdownRenderer v-if="enableMarkdown && !msg.isTyping" :content="msg.displayContent" />
+                    <div v-else class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
+                    <div class="flex gap-3 pt-3 border-t border-[#e5e5e5]">
+                      <el-button size="small" link @click="$emit('copy', msg.content)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
+                        <el-icon class="mr-1">
+                          <DocumentCopy />
+                        </el-icon>
+                        复制内容
+                      </el-button>
+                      <el-button size="small" link @click="$emit('regenerate', msg)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
+                        <el-icon class="mr-1">
+                          <Refresh />
+                        </el-icon>
+                        重新生成
+                      </el-button>
+                      <el-button size="small" link @click="$emit('generate-image', msg)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
+                        <el-icon class="mr-1">
+                          <Picture />
+                        </el-icon>
+                        生成配图
+                      </el-button>
+                    </div>
+                  </div>
+                </template>
               </div>
-            </template>
-            <template v-else>
-              <div v-if="msg.loading" class="flex gap-1.5 py-2">
-                <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse" style="animation-delay: -0.32s"></span>
-                <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse" style="animation-delay: -0.16s"></span>
-                <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse"></span>
-              </div>
-              
-              <template v-else-if="msg.type === 'image'">
-                <ImageMessage 
-                  :image-info="msg.imageInfo" 
-                  :loading="msg.imageLoading"
-                  @preview="handlePreview(msg.imageInfo)"
-                  @regenerate="$emit('regenerate', msg)"
-                />
-              </template>
-              
-              <div v-else class="text-base leading-relaxed text-[#1a1a1a]">
-                <MarkdownRenderer v-if="enableMarkdown && !msg.isTyping" :content="msg.displayContent" />
-                <div v-else class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
-                <div class="flex gap-3 pt-3 border-t border-[#e5e5e5]">
-                  <el-button size="small" link @click="$emit('copy', msg.content)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
-                    <el-icon class="mr-1">
-                      <DocumentCopy />
-                    </el-icon>
-                    复制内容
-                  </el-button>
-                  <el-button size="small" link @click="$emit('regenerate', msg)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
-                    <el-icon class="mr-1">
-                      <Refresh />
-                    </el-icon>
-                    重新生成
-                  </el-button>
-                  <el-button size="small" link @click="$emit('generate-image', msg)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
-                    <el-icon class="mr-1">
-                      <Picture />
-                    </el-icon>
-                    生成配图
-                  </el-button>
-                </div>
-              </div>
-            </template>
+              <div class="text-xs text-[#999] px-1">{{ msg.time }}</div>
+            </div>
           </div>
-          <div class="text-xs text-[#999] px-1">{{ msg.time }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div
+      v-if="selectMode"
+      class="fixed bottom-0 left-0 right-0 bg-white border-t border-[#e5e5e5] shadow-lg z-50"
+    >
+      <div class="max-w-[1000px] mx-auto px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-[#666]">
+            已选择 <span class="font-semibold text-[#1a1a1a]">{{ selectedMessages.length }}</span> 项
+          </span>
+          <el-button size="small" link @click="clearSelection" class="text-[#999]">
+            取消选择
+          </el-button>
+        </div>
+        <div class="flex items-center gap-3">
+          <el-button @click="exitSelectMode">取消</el-button>
+          <el-button
+            type="primary"
+            class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+            :disabled="selectedMessages.length === 0"
+            @click="handleCreatePackage"
+          >
+            创建内容包
+          </el-button>
         </div>
       </div>
     </div>
@@ -98,7 +138,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch } from 'vue'
+import { ref, nextTick, watch, computed } from 'vue'
 import { User, ChatDotRound, DocumentCopy, Refresh, Picture } from '@element-plus/icons-vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import ImageMessage from './ImageMessage.vue'
@@ -112,9 +152,11 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['use-prompt', 'copy', 'regenerate', 'generate-image', 'preview-image', 'regenerate-image'])
+const emit = defineEmits(['use-prompt', 'copy', 'regenerate', 'generate-image', 'preview-image', 'regenerate-image', 'create-package'])
 
 const messagesRef = ref(null)
+const selectMode = ref(false)
+const selectedMessages = ref([])
 
 const quickPrompts = [
   '春日野餐文案',
@@ -146,11 +188,68 @@ const handlePreviewRegenerate = () => {
   emit('regenerate-image', previewImageInfo.value)
 }
 
+const isSelected = (msg) => {
+  return selectedMessages.value.some(m => m === msg)
+}
+
+const toggleSelect = (msg) => {
+  const index = selectedMessages.value.indexOf(msg)
+  if (index > -1) {
+    selectedMessages.value.splice(index, 1)
+  } else {
+    selectedMessages.value.push(msg)
+  }
+}
+
+const clearSelection = () => {
+  selectedMessages.value = []
+}
+
+const enterSelectMode = () => {
+  selectMode.value = true
+  selectedMessages.value = []
+}
+
+const exitSelectMode = () => {
+  selectMode.value = false
+  selectedMessages.value = []
+}
+
+const handleCreatePackage = () => {
+  const items = selectedMessages.value.map(msg => {
+    if (msg.type === 'image') {
+      return {
+        item_type: 'image',
+        item_id: msg.imageInfo?.imageId,
+        url: msg.imageInfo?.url,
+        prompt: msg.imageInfo?.prompt,
+        style: msg.imageInfo?.style,
+        size: msg.imageInfo?.size,
+        platform: msg.imageInfo?.platform
+      }
+    } else {
+      return {
+        item_type: 'content',
+        item_id: msg.contentId,
+        content: msg.content,
+        platform: msg.platform
+      }
+    }
+  })
+  
+  emit('create-package', items)
+  exitSelectMode()
+}
+
 watch(() => props.messages, () => {
   scrollToBottom()
 }, { deep: true })
 
 defineExpose({
-  scrollToBottom
+  scrollToBottom,
+  enterSelectMode,
+  exitSelectMode,
+  selectMode,
+  selectedMessages
 })
 </script>

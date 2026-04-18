@@ -21,11 +21,11 @@
       
       <div class="flex flex-col gap-1.5 mt-2">
         <div>
-          <el-button size="small" @click="$emit('navigate', 'content-list')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
+          <el-button size="small" @click="$emit('navigate', 'package-list')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
           <el-icon class="mr-2">
-            <Document />
+            <FolderOpened />
           </el-icon>
-          历史管理
+          我的内容包
         </el-button>
         </div>
         <div>
@@ -34,6 +34,14 @@
             <Calendar />
           </el-icon>
           排期管理
+        </el-button>
+        </div>
+        <div>
+          <el-button size="small" @click="$emit('navigate', 'content-list')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
+          <el-icon class="mr-2">
+            <Document />
+          </el-icon>
+          创作历史
         </el-button>
         </div>
         <div>
@@ -141,7 +149,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Document, UserFilled, Calendar, Search, Refresh } from '@element-plus/icons-vue'
+import { Plus, Document, UserFilled, Calendar, Search, Refresh, FolderOpened } from '@element-plus/icons-vue'
 import { getHotspotList, refreshHotspots } from '@/api/hotspot'
 
 const props = defineProps({
