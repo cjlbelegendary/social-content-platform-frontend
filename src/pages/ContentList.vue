@@ -6,6 +6,10 @@
           <span class="text-lg font-semibold text-[#1a1a1a]">创作历史</span>
         </template>
       </el-page-header>
+      <div class="flex items-center gap-4 text-sm text-[#999]">
+        <router-link to="/package-list" class="hover:text-[#1a1a1a] transition-colors">我的内容包</router-link>
+        <router-link to="/schedule" class="hover:text-[#1a1a1a] transition-colors">排期管理</router-link>
+      </div>
     </div>
     
     <div class="p-6 px-10">

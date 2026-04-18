@@ -6,6 +6,10 @@
           <span class="text-lg font-semibold text-[#1a1a1a]">排期管理</span>
         </template>
       </el-page-header>
+      <div class="flex items-center gap-4 text-sm text-[#999]">
+        <router-link to="/package-list" class="hover:text-[#1a1a1a] transition-colors">我的内容包</router-link>
+        <router-link to="/content-list" class="hover:text-[#1a1a1a] transition-colors">创作历史</router-link>
+      </div>
     </div>
     
     <div class="p-6 px-10">
@@ -185,6 +189,14 @@
           <el-tag :type="getStatusType(currentSchedule.status)" size="small" class="rounded-md">
             {{ getStatusText(currentSchedule.status) }}
           </el-tag>
+          <el-button
+            size="small"
+            link
+            type="primary"
+            @click="goToPackage"
+          >
+            查看内容包
+          </el-button>
         </div>
         
         <div class="grid grid-cols-2 gap-4 text-sm mb-4 flex-shrink-0">
@@ -316,10 +328,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Calendar } from '@element-plus/icons-vue'
 import { getScheduleList, updateSchedule } from '@/api/schedule'
 
+const router = useRouter()
 const loading = ref(false)
 const scheduleList = ref([])
 const detailDialogVisible = ref(false)
@@ -460,6 +474,13 @@ const handleReset = () => {
 const handleViewDetail = (item) => {
   currentSchedule.value = item
   detailDialogVisible.value = true
+}
+
+const goToPackage = () => {
+  if (currentSchedule.value?.package?.id) {
+    detailDialogVisible.value = false
+    router.push(`/package-list?packageId=${currentSchedule.value.package.id}`)
+  }
 }
 
 const handleMarkPublished = async (item) => {

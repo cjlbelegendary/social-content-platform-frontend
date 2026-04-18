@@ -6,6 +6,10 @@
           <span class="text-lg font-semibold text-[#1a1a1a]">我的内容包</span>
         </template>
       </el-page-header>
+      <div class="flex items-center gap-4 text-sm text-[#999]">
+        <router-link to="/schedule" class="hover:text-[#1a1a1a] transition-colors">排期管理</router-link>
+        <router-link to="/content-list" class="hover:text-[#1a1a1a] transition-colors">创作历史</router-link>
+      </div>
     </div>
     
     <div class="flex-1 flex overflow-hidden">
@@ -371,7 +375,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ElImageViewer } from 'element-plus'
 import { Loading, FolderOpened, ArrowDown } from '@element-plus/icons-vue'
@@ -379,6 +383,7 @@ import { getPackageList, getPackageDetail, deletePackage, copyPackage } from '@/
 import { createSchedule, batchCreateSchedule } from '@/api/schedule'
 
 const router = useRouter()
+const route = useRoute()
 
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -731,7 +736,14 @@ const handleDelete = async () => {
   }
 }
 
-onMounted(() => {
-  loadPackageList()
+onMounted(async () => {
+  await loadPackageList()
+  const packageId = route.query.packageId
+  if (packageId) {
+    const targetPackage = packageList.value.find(p => p.id === parseInt(packageId))
+    if (targetPackage) {
+      handleSelectPackage(targetPackage)
+    }
+  }
 })
 </script>
