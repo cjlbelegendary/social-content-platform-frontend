@@ -36,11 +36,16 @@
         @use-prompt="useQuickPrompt"
         @copy="copyContent"
         @regenerate="regenerateContent"
+        @generate-image="handleGenerateImage"
+        @regenerate-image="handleRegenerateImage"
       />
 
       <InputArea
         v-model="userInput"
         v-model:platform="settingsStore.currentPlatform"
+        v-model:mode="generateMode"
+        v-model:image-style="imageStyle"
+        v-model:image-size="imageSize"
         :loading="chatStore.loading"
         @send="handleSend"
       >
@@ -53,11 +58,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
-import { reactive } from 'vue'
 
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
@@ -69,10 +73,14 @@ import PersonaConfig from '@/components/PersonaConfig.vue'
 import MessageList from '@/components/MessageList.vue'
 import InputArea from '@/components/InputArea.vue'
 import { generateContentStream } from '@/api/content'
+import { generateImage, regenerateImage, generateImageFromContent } from '@/api/image'
 
 const router = useRouter()
 const messageListRef = ref(null)
 const userInput = ref('')
+const generateMode = ref('text')
+const imageStyle = ref('清新自然')
+const imageSize = ref('1:1')
 
 const chatStore = useChatStore()
 const userStore = useUserStore()
@@ -96,17 +104,22 @@ const handleNavigate = (page) => {
   }
 }
 
-const handleSend = async () => {
-  if (!userInput.value.trim()) {
-    ElMessage.warning('请输入创作需求')
+const handleSend = async (data) => {
+  if (!data.input.trim()) {
+    ElMessage.warning(generateMode.value === 'text' ? '请输入创作需求' : '请输入图片描述')
+    return
+  }
+
+  if (data.mode === 'image') {
+    await handleImageGeneration(data)
     return
   }
 
   chatStore.clearStreamController()
 
   chatStore.addUserMessage({
-    content: userInput.value.trim(),
-    platform: settingsStore.currentPlatform
+    content: data.input.trim(),
+    platform: data.platform
   })
 
   const aiMsg = reactive(chatStore.addAIMessage({
@@ -114,7 +127,7 @@ const handleSend = async () => {
     isTyping: false
   }))
 
-  const inputPrompt = userInput.value.trim()
+  const inputPrompt = data.input.trim()
   userInput.value = ''
   scrollToBottom()
 
@@ -122,7 +135,7 @@ const handleSend = async () => {
   
   const streamData = {
     prompt: inputPrompt,
-    platform: settingsStore.currentPlatform,
+    platform: data.platform,
     title: inputPrompt,
     session_id: chatStore.currentSessionId,
     persona: personaStore.personaObject
@@ -206,6 +219,166 @@ const handleSend = async () => {
   chatStore.setStreamController(controller)
 }
 
+const handleImageGeneration = async (data) => {
+  chatStore.clearStreamController()
+
+  chatStore.addUserMessage({
+    content: data.input.trim(),
+    platform: data.platform,
+    type: 'image-request'
+  })
+
+  const aiMsg = reactive(chatStore.addAIMessage({
+    type: 'image',
+    loading: true,
+    imageLoading: true,
+    imageInfo: {
+      url: '',
+      prompt: data.input.trim(),
+      style: data.imageStyle,
+      size: data.imageSize,
+      width: 1024,
+      height: 1024,
+      platform: data.platform
+    }
+  }))
+
+  userInput.value = ''
+  scrollToBottom()
+  chatStore.setLoading(true)
+
+  try {
+    const sessionId = chatStore.currentSessionId ? parseInt(chatStore.currentSessionId) : null
+    const res = await generateImage({
+      prompt: data.input.trim(),
+      style: data.imageStyle,
+      size: data.imageSize,
+      platform: data.platform,
+      session_id: sessionId
+    })
+
+    if (res.code === 200) {
+      aiMsg.loading = false
+      aiMsg.imageLoading = false
+      aiMsg.imageInfo = {
+        imageId: res.data.image_id,
+        url: res.data.url,
+        prompt: res.data.prompt,
+        style: res.data.style,
+        size: res.data.size,
+        width: res.data.width,
+        height: res.data.height,
+        platform: data.platform
+      }
+      ElMessage.success('图片生成成功')
+    } else {
+      throw new Error(res.msg || '生成失败')
+    }
+  } catch (error) {
+    aiMsg.loading = false
+    aiMsg.imageLoading = false
+    aiMsg.imageInfo.url = ''
+    ElMessage.error(error.response?.data?.detail || error.message || '图片生成失败')
+  } finally {
+    chatStore.setLoading(false)
+    scrollToBottom()
+  }
+}
+
+const handleGenerateImage = async (msg) => {
+  chatStore.addUserMessage({
+    content: `为以下内容生成配图：${msg.content.substring(0, 50)}...`,
+    platform: settingsStore.currentPlatform,
+    type: 'image-request'
+  })
+
+  const aiMsg = reactive(chatStore.addAIMessage({
+    type: 'image',
+    loading: true,
+    imageLoading: true,
+    imageInfo: {
+      url: '',
+      prompt: msg.content,
+      style: imageStyle.value,
+      size: imageSize.value,
+      width: 1024,
+      height: 1024,
+      platform: settingsStore.currentPlatform
+    }
+  }))
+
+  scrollToBottom()
+  chatStore.setLoading(true)
+
+  try {
+    const sessionId = chatStore.currentSessionId ? parseInt(chatStore.currentSessionId) : null
+    const res = await generateImageFromContent({
+      content: msg.content,
+      platform: settingsStore.currentPlatform,
+      style: imageStyle.value,
+      size: imageSize.value,
+      session_id: sessionId
+    })
+
+    if (res.code === 200) {
+      aiMsg.loading = false
+      aiMsg.imageLoading = false
+      aiMsg.imageInfo = {
+        imageId: res.data.image_id,
+        url: res.data.url,
+        prompt: res.data.prompt,
+        style: res.data.style,
+        size: res.data.size,
+        width: res.data.width,
+        height: res.data.height,
+        platform: settingsStore.currentPlatform
+      }
+      ElMessage.success('配图生成成功')
+    } else {
+      throw new Error(res.msg || '生成失败')
+    }
+  } catch (error) {
+    aiMsg.loading = false
+    aiMsg.imageLoading = false
+    aiMsg.imageInfo.url = ''
+    ElMessage.error(error.response?.data?.detail || error.message || '配图生成失败')
+  } finally {
+    chatStore.setLoading(false)
+    scrollToBottom()
+  }
+}
+
+const handleRegenerateImage = async (imageInfo) => {
+  chatStore.setLoading(true)
+  
+  try {
+    const res = await regenerateImage({
+      image_id: imageInfo.imageId,
+      prompt: imageInfo.prompt,
+      style: imageInfo.style,
+      size: imageInfo.size
+    })
+
+    if (res.code === 200) {
+      const currentMsg = chatStore.currentMessages.find(m => 
+        m.type === 'image' && m.imageInfo?.imageId === imageInfo.imageId
+      )
+      
+      if (currentMsg) {
+        currentMsg.imageInfo.url = res.data.url
+        currentMsg.imageInfo.imageId = res.data.image_id
+        ElMessage.success('图片已重新生成')
+      }
+    } else {
+      throw new Error(res.msg || '重新生成失败')
+    }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || error.message || '图片重新生成失败')
+  } finally {
+    chatStore.setLoading(false)
+  }
+}
+
 const useQuickPrompt = (prompt) => {
   userInput.value = prompt
 }
@@ -236,7 +409,11 @@ const regenerateContent = (msg) => {
     userInput.value = userMsg.content
     settingsStore.setPlatform(userMsg.platform)
     chatStore.currentMessages = messages.slice(0, userMsgIndex + 1)
-    handleSend()
+    handleSend({
+      input: userMsg.content,
+      platform: userMsg.platform,
+      mode: 'text'
+    })
   }
 }
 

@@ -86,22 +86,53 @@ export const useChatStore = defineStore('chat', {
         if (res.code === 200 && res.session) {
           const session = res.session
           const messages = []
-          session.contents.forEach(content => {
-            messages.push({
-              role: 'user',
-              content: content.title,
-              platform: content.platform,
-              time: this.formatTime(content.create_time),
-              originalTime: content.create_time
-            })
-            messages.push({
-              role: 'ai',
-              content: content.content,
-              displayContent: content.content,
-              loading: false,
-              time: this.formatTime(content.create_time),
-              originalTime: content.create_time
-            })
+          session.contents.forEach(item => {
+            if (item.type === 'content') {
+              messages.push({
+                role: 'user',
+                content: item.title,
+                platform: item.platform,
+                type: 'text',
+                time: this.formatTime(item.create_time_str || item.create_time),
+                originalTime: item.create_time_str || item.create_time
+              })
+              messages.push({
+                role: 'ai',
+                content: item.content,
+                displayContent: item.content,
+                loading: false,
+                type: 'text',
+                time: this.formatTime(item.create_time_str || item.create_time),
+                originalTime: item.create_time_str || item.create_time
+              })
+            } else if (item.type === 'image') {
+              messages.push({
+                role: 'user',
+                content: item.prompt,
+                platform: item.platform,
+                type: 'image-request',
+                time: this.formatTime(item.create_time_str || item.create_time),
+                originalTime: item.create_time_str || item.create_time
+              })
+              messages.push({
+                role: 'ai',
+                type: 'image',
+                loading: false,
+                imageLoading: false,
+                imageInfo: {
+                  imageId: item.image_id,
+                  url: item.url,
+                  prompt: item.prompt,
+                  style: item.style,
+                  size: item.size,
+                  width: item.width,
+                  height: item.height,
+                  platform: item.platform
+                },
+                time: this.formatTime(item.create_time_str || item.create_time),
+                originalTime: item.create_time_str || item.create_time
+              })
+            }
           })
           messages.sort((a, b) => new Date(a.originalTime) - new Date(b.originalTime))
           this.currentMessages = messages
@@ -130,6 +161,7 @@ export const useChatStore = defineStore('chat', {
         role: 'user',
         content: message.content,
         platform: message.platform,
+        type: message.type || 'text',
         time: this.formatTime(),
         originalTime: new Date().toISOString()
       })
@@ -142,6 +174,9 @@ export const useChatStore = defineStore('chat', {
         displayContent: message.displayContent || '',
         loading: message.loading || false,
         isTyping: message.isTyping || false,
+        type: message.type || 'text',
+        imageLoading: message.imageLoading || false,
+        imageInfo: message.imageInfo || null,
         time: this.formatTime(),
         originalTime: new Date().toISOString()
       })

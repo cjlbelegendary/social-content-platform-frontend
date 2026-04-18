@@ -46,6 +46,16 @@
                 <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse" style="animation-delay: -0.16s"></span>
                 <span class="w-2 h-2 rounded-full bg-[#999] animate-pulse"></span>
               </div>
+              
+              <template v-else-if="msg.type === 'image'">
+                <ImageMessage 
+                  :image-info="msg.imageInfo" 
+                  :loading="msg.imageLoading"
+                  @preview="handlePreview(msg.imageInfo)"
+                  @regenerate="$emit('regenerate', msg)"
+                />
+              </template>
+              
               <div v-else class="text-base leading-relaxed text-[#1a1a1a]">
                 <MarkdownRenderer v-if="enableMarkdown && !msg.isTyping" :content="msg.displayContent" />
                 <div v-else class="whitespace-pre-wrap mb-3">{{ msg.displayContent }}</div>
@@ -62,6 +72,12 @@
                     </el-icon>
                     重新生成
                   </el-button>
+                  <el-button size="small" link @click="$emit('generate-image', msg)" class="text-sm text-[#666] hover:text-[#1a1a1a]">
+                    <el-icon class="mr-1">
+                      <Picture />
+                    </el-icon>
+                    生成配图
+                  </el-button>
                 </div>
               </div>
             </template>
@@ -70,13 +86,23 @@
         </div>
       </div>
     </div>
+    
+    <ImagePreview 
+      v-model="showPreview" 
+      :image-info="previewImageInfo"
+      :loading="previewLoading"
+      :regenerating="previewRegenerating"
+      @regenerate="handlePreviewRegenerate"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, nextTick, watch } from 'vue'
-import { User, ChatDotRound, DocumentCopy, Refresh } from '@element-plus/icons-vue'
+import { User, ChatDotRound, DocumentCopy, Refresh, Picture } from '@element-plus/icons-vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
+import ImageMessage from './ImageMessage.vue'
+import ImagePreview from './ImagePreview.vue'
 
 const props = defineProps({
   messages: Array,
@@ -86,7 +112,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['use-prompt', 'copy', 'regenerate'])
+const emit = defineEmits(['use-prompt', 'copy', 'regenerate', 'generate-image', 'preview-image', 'regenerate-image'])
 
 const messagesRef = ref(null)
 
@@ -98,12 +124,26 @@ const quickPrompts = [
   '美食探店推荐'
 ]
 
+const showPreview = ref(false)
+const previewImageInfo = ref({})
+const previewLoading = ref(false)
+const previewRegenerating = ref(false)
+
 const scrollToBottom = () => {
   nextTick(() => {
     if (messagesRef.value) {
       messagesRef.value.scrollTop = messagesRef.value.scrollHeight
     }
   })
+}
+
+const handlePreview = (imageInfo) => {
+  previewImageInfo.value = imageInfo
+  showPreview.value = true
+}
+
+const handlePreviewRegenerate = () => {
+  emit('regenerate-image', previewImageInfo.value)
 }
 
 watch(() => props.messages, () => {
