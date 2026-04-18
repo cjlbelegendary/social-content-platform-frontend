@@ -1,6 +1,6 @@
 <template>
-  <div class="h-screen bg-[#fafafa]">
-    <div class="h-14 px-6 bg-white border-b border-[#e5e5e5] flex items-center">
+  <div class="h-screen bg-[#fafafa] flex flex-col">
+    <div class="h-14 px-6 bg-white border-b border-[#e5e5e5] flex items-center flex-shrink-0">
       <el-page-header @back="$router.push('/home')">
         <template #content>
           <span class="text-lg font-semibold text-[#1a1a1a]">创作历史</span>
@@ -12,9 +12,9 @@
       </div>
     </div>
     
-    <div class="p-6 px-10">
+    <div class="flex-1 overflow-y-auto p-6 px-10">
       <div class="bg-white rounded-2xl border border-[#e5e5e5] overflow-hidden max-w-[1200px] mx-auto">
-        <div class="p-4 flex items-center gap-4 flex-wrap">
+        <div class="p-4 flex items-center gap-4 flex-wrap sticky top-0 bg-white z-10 border-b border-[#e5e5e5]">
           <div class="flex gap-1 p-1 bg-[#f5f5f5] rounded-lg">
             <button
               v-for="tab in typeTabs"
@@ -50,7 +50,7 @@
             v-model="filterForm.keyword"
             placeholder="搜索关键词"
             clearable
-            class="w-64"
+            class="w-32"
             @keyup.enter="handleSearch"
           >
             <template #prefix>
@@ -62,6 +62,27 @@
             搜索
           </el-button>
           <el-button @click="handleReset">重置</el-button>
+          
+          <div class="flex items-center gap-1 p-1 bg-[#f5f5f5] rounded-lg">
+            <el-tooltip content="单列" placement="top">
+              <button
+                @click="columnMode = 1"
+                class="p-1.5 rounded-md transition-all duration-200"
+                :class="columnMode === 1 ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#999] hover:text-[#666]'"
+              >
+                <el-icon><Menu /></el-icon>
+              </button>
+            </el-tooltip>
+            <el-tooltip content="双列" placement="top">
+              <button
+                @click="columnMode = 2"
+                class="p-1.5 rounded-md transition-all duration-200"
+                :class="columnMode === 2 ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#999] hover:text-[#666]'"
+              >
+                <el-icon><Grid /></el-icon>
+              </button>
+            </el-tooltip>
+          </div>
         </div>
         
         <div class="min-h-[400px] relative">
@@ -74,7 +95,7 @@
             <p>暂无内容</p>
           </div>
           
-          <div v-else class="p-4 grid grid-cols-2 gap-4">
+          <div v-else class="p-4 grid gap-4" :class="columnMode === 1 ? 'grid-cols-1' : 'grid-cols-2'">
             <div
               v-for="item in contentList"
               :key="`${item.type}-${item.id}`"
@@ -173,7 +194,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Loading, Document } from '@element-plus/icons-vue'
+import { Search, Loading, Document, Menu, Grid } from '@element-plus/icons-vue'
 import { getContents } from '@/api/content'
 import CreatePackageDialog from '@/components/CreatePackageDialog.vue'
 
@@ -184,6 +205,7 @@ const contentList = ref([])
 const selectedItems = ref([])
 const showCreatePackageDialog = ref(false)
 const dateRange = ref([])
+const columnMode = ref(2)
 
 const activeType = ref('all')
 
