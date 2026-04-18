@@ -1,6 +1,6 @@
 <template>
   <div class="flex-1 overflow-y-auto p-6 bg-[#fafafa]" ref="messagesRef">
-    <div class="max-w-3xl mx-auto">
+    <div class="max-w-[1000px] mx-auto">
       <div v-if="messages.length === 0" class="text-center py-20 px-5">
         <div class="w-20 h-20 mx-auto mb-6 bg-[#1a1a1a] rounded-2xl flex items-center justify-center text-white">
           <svg class="w-10 h-10" viewBox="0 0 24 24" fill="none">
