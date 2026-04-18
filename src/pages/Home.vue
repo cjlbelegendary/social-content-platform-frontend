@@ -12,7 +12,7 @@
       @logout="handleLogout"
     />
 
-    <div class="flex-1 flex flex-col bg-white">
+    <div class="flex-1 flex flex-col bg-white relative">
       <div class="h-14 px-6 bg-white border-b border-[#e5e5e5] flex justify-between items-center">
         <div class="flex flex-col justify-center items-center flex-1">
           <div class="text-base font-semibold text-[#1a1a1a]">{{ chatStore.currentTitle }}</div>
@@ -38,21 +38,26 @@
         @regenerate="regenerateContent"
         @generate-image="handleGenerateImage"
         @regenerate-image="handleRegenerateImage"
+        class="flex-1 pb-[200px]"
       />
 
-      <InputArea
-        v-model="userInput"
-        v-model:platform="settingsStore.currentPlatform"
-        v-model:mode="generateMode"
-        v-model:image-style="imageStyle"
-        v-model:image-size="imageSize"
-        :loading="chatStore.loading"
-        @send="handleSend"
-      >
-        <template #persona-config>
-          <PersonaConfig />
-        </template>
-      </InputArea>
+      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/95 to-transparent pt-8 pointer-events-none">
+        <div class="pointer-events-auto">
+          <InputArea
+            v-model="userInput"
+            v-model:platform="settingsStore.currentPlatform"
+            v-model:mode="generateMode"
+            v-model:image-style="imageStyle"
+            v-model:image-size="imageSize"
+            :loading="chatStore.loading"
+            @send="handleSend"
+          >
+            <template #persona-config>
+              <PersonaConfig />
+            </template>
+          </InputArea>
+        </div>
+      </div>
     </div>
   </div>
 </template>

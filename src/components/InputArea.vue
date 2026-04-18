@@ -1,30 +1,7 @@
 <template>
-  <div class="p-4 px-6 bg-white border-t border-[#e5e5e5]">
+  <div class="px-6 py-4 bg-transparent">
     <div class="max-w-[1000px] mx-auto">
-      <slot name="persona-config"></slot>
-      
-      <div class="mb-3">
-        <div class="flex gap-1 p-1 bg-[#f5f5f5] rounded-xl w-fit">
-          <button 
-            @click="localMode = 'text'"
-            class="mode-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200"
-            :class="localMode === 'text' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#999] hover:text-[#666]'"
-          >
-            <el-icon class="mr-1 align-middle"><EditPen /></el-icon>
-            文本
-          </button>
-          <button 
-            @click="localMode = 'image'"
-            class="mode-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200"
-            :class="localMode === 'image' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#999] hover:text-[#666]'"
-          >
-            <el-icon class="mr-1 align-middle"><Picture /></el-icon>
-            图片
-          </button>
-        </div>
-      </div>
-      
-      <div class="input-container rounded-2xl border border-[#e5e5e5] hover:border-[#d5d5d5] focus-within:border-[#1a1a1a] focus-within:shadow-sm transition-all duration-200 bg-white p-4">
+      <div class="input-container rounded-2xl border border-[#e5e5e5] hover:border-[#d5d5d5] focus-within:border-[#1a1a1a] focus-within:shadow-lg transition-all duration-200 bg-white p-4 shadow-xl">
         <el-input 
           v-model="localInput" 
           type="textarea" 
@@ -34,12 +11,29 @@
         />
         
         <div class="flex justify-between items-center gap-3 mt-3">
-          <span class="text-xs text-[#999]">Ctrl+Enter 发送</span>
-          
           <div class="flex items-center gap-3">
+            <div class="flex gap-1 p-1 bg-[#f5f5f5] rounded-lg">
+              <button 
+                @click="localMode = 'text'"
+                class="mode-btn px-3 py-1 rounded-md text-sm font-medium transition-all duration-200"
+                :class="localMode === 'text' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#999] hover:text-[#666]'"
+              >
+                <el-icon class="mr-1 align-middle"><EditPen /></el-icon>
+                文本
+              </button>
+              <button 
+                @click="localMode = 'image'"
+                class="mode-btn px-3 py-1 rounded-md text-sm font-medium transition-all duration-200"
+                :class="localMode === 'image' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#999] hover:text-[#666]'"
+              >
+                <el-icon class="mr-1 align-middle"><Picture /></el-icon>
+                图片
+              </button>
+            </div>
+            <slot name="persona-config"></slot>
             <template v-if="localMode === 'text'">
-              <span class="text-sm text-[#666] font-medium text-nowrap">适配平台：</span>
-              <el-select v-model="localPlatform" placeholder="选择平台" size="small" class="platform-select">
+              <span class="text-sm text-[#666]">平台：</span>
+              <el-select v-model="localPlatform" placeholder="选择平台" size="small" class="platform-select w-20">
                 <el-option label="小红书" value="小红书" />
                 <el-option label="微博" value="微博" />
                 <el-option label="朋友圈" value="朋友圈" />
@@ -48,7 +42,8 @@
             </template>
             
             <template v-else>
-              <el-select v-model="localImageStyle" placeholder="风格" size="small" class="style-select">
+              <span class="text-sm text-[#666]">风格：</span>
+              <el-select v-model="localImageStyle" placeholder="风格" size="small" class="style-select w-[100px]">
                 <el-option label="清新自然" value="清新自然" />
                 <el-option label="复古胶片" value="复古胶片" />
                 <el-option label="简约极简" value="简约极简" />
@@ -56,8 +51,8 @@
                 <el-option label="潮流时尚" value="潮流时尚" />
                 <el-option label="商务专业" value="商务专业" />
               </el-select>
-              
-              <el-select v-model="localImageSize" placeholder="尺寸" size="small" class="size-select">
+              <span class="text-sm text-[#666]">尺寸：</span>
+              <el-select v-model="localImageSize" placeholder="尺寸" size="small" class="size-select w-[100px]">
                 <el-option label="1:1 正方形" value="1:1" />
                 <el-option label="3:4 竖版" value="3:4" />
                 <el-option label="4:3 横版" value="4:3" />
@@ -65,7 +60,10 @@
                 <el-option label="9:16 竖长" value="9:16" />
               </el-select>
             </template>
-            
+          </div>
+          
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-[#999]">Ctrl+Enter 发送</span>
             <el-button 
               size="large" 
               :loading="loading" 

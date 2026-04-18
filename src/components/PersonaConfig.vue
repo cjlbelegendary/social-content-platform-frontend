@@ -1,64 +1,66 @@
 <template>
-  <el-collapse v-model="collapseActive" class="mb-4 border-none persona-collapse">
-    <el-collapse-item name="persona">
-      <template #title>
-        <div class="flex items-center gap-2 text-sm font-medium text-[#666]">
-          <el-icon><UserFilled /></el-icon>
-          <span>人设配置</span>
-          <el-tag v-if="personaStore.hasPersona" size="small" class="ml-2 bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]">已配置</el-tag>
-        </div>
-      </template>
-      
-      <div class="p-4 bg-[#fafafa] rounded-xl">
-        <div class="grid grid-cols-3 gap-4 mb-4">
-          <div>
-            <div class="text-sm font-medium text-[#666] mb-2">领域</div>
-            <el-select v-model="personaStore.domain" placeholder="请选择领域" class="w-full persona-select">
-              <el-option 
-                v-for="item in personaOptions.domain" 
-                :key="item.value" 
-                :label="item.label" 
-                :value="item.value" 
-              />
-            </el-select>
-          </div>
-          
-          <div>
-            <div class="text-sm font-medium text-[#666] mb-2">风格</div>
-            <el-select v-model="personaStore.style" placeholder="请选择风格" class="w-full persona-select">
-              <el-option 
-                v-for="item in personaOptions.style" 
-                :key="item.value" 
-                :label="item.label" 
-                :value="item.value" 
-              />
-            </el-select>
-          </div>
-          
-          <div>
-            <div class="text-sm font-medium text-[#666] mb-2">语气</div>
-            <el-select v-model="personaStore.tone" placeholder="请选择语气" class="w-full persona-select">
-              <el-option 
-                v-for="item in personaOptions.tone" 
-                :key="item.value" 
-                :label="item.label" 
-                :value="item.value" 
-              />
-            </el-select>
-          </div>
+  <el-popover
+    placement="top"
+    :width="400"
+    trigger="click"
+  >
+    <template #reference>
+      <div class="flex items-center gap-2 px-3 py-1.5 bg-[#f5f5f5] rounded-lg cursor-pointer hover:bg-[#f0f0f0] transition-colors">
+        <el-icon class="text-[#666]"><UserFilled /></el-icon>
+        <span class="text-sm text-[#666]">人设</span>
+        <el-tag v-if="personaStore.hasPersona" size="small" class="bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]">已配置</el-tag>
+      </div>
+    </template>
+    
+    <div class="p-3">
+      <div class="grid grid-cols-3 gap-3 mb-3">
+        <div>
+          <div class="text-xs font-medium text-[#999] mb-1.5">领域</div>
+          <el-select v-model="personaStore.domain" placeholder="请选择" size="small" class="w-full persona-select">
+            <el-option 
+              v-for="item in personaOptions.domain" 
+              :key="item.value" 
+              :label="item.label" 
+              :value="item.value" 
+            />
+          </el-select>
         </div>
         
-        <div class="flex gap-3">
-          <el-button @click="handleSave" :loading="saving" class="save-btn rounded-xl bg-[#1a1a1a] text-white border-none hover:text-gray-100 hover:bg-[#333]">
-            保存为我的人设
-          </el-button>
-          <el-button @click="handleReset" class="rounded-xl text-[#666] hover:text-[#1a1a1a] border-[#e5e5e5] hover:border-[#d5d5d5]">
-            重置为默认
-          </el-button>
+        <div>
+          <div class="text-xs font-medium text-[#999] mb-1.5">风格</div>
+          <el-select v-model="personaStore.style" placeholder="请选择" size="small" class="w-full persona-select">
+            <el-option 
+              v-for="item in personaOptions.style" 
+              :key="item.value" 
+              :label="item.label" 
+              :value="item.value" 
+            />
+          </el-select>
+        </div>
+        
+        <div>
+          <div class="text-xs font-medium text-[#999] mb-1.5">语气</div>
+          <el-select v-model="personaStore.tone" placeholder="请选择" size="small" class="w-full persona-select">
+            <el-option 
+              v-for="item in personaOptions.tone" 
+              :key="item.value" 
+              :label="item.label" 
+              :value="item.value" 
+            />
+          </el-select>
         </div>
       </div>
-    </el-collapse-item>
-  </el-collapse>
+      
+      <div class="flex gap-2">
+        <el-button size="small" @click="handleSave" :loading="saving" class="save-btn rounded-lg bg-[#1a1a1a] text-white border-none hover:bg-[#333]">
+          保存
+        </el-button>
+        <el-button size="small" @click="handleReset" class="rounded-lg text-[#666] border-[#e5e5e5]">
+          重置
+        </el-button>
+      </div>
+    </div>
+  </el-popover>
 </template>
 
 <script setup>
@@ -71,7 +73,6 @@ import { personaOptions } from '@/data/personaOptions'
 
 const personaStore = usePersonaStore()
 
-const collapseActive = ref([])
 const saving = ref(false)
 
 const loadPersona = async () => {
@@ -105,13 +106,13 @@ const handleSave = async () => {
     })
     
     if (res.code === 200) {
-      ElMessage.success('保存人设配置成功')
+      ElMessage.success('保存成功')
     } else {
       ElMessage.error(res.msg || '保存失败')
     }
   } catch (error) {
     console.error('保存人设配置失败：', error)
-    ElMessage.error('保存失败，请稍后重试')
+    ElMessage.error('保存失败')
   } finally {
     saving.value = false
   }
@@ -119,7 +120,7 @@ const handleSave = async () => {
 
 const handleReset = () => {
   personaStore.reset()
-  ElMessage.success('已重置为默认')
+  ElMessage.success('已重置')
 }
 
 onMounted(() => {
@@ -128,23 +129,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.persona-collapse :deep(.el-collapse-item__header) {
-  background: transparent;
-  border: none;
-  height: 40px;
-  line-height: 40px;
-}
-
-.persona-collapse :deep(.el-collapse-item__wrap) {
-  border: none;
-}
-
-.persona-collapse :deep(.el-collapse-item__content) {
-  padding-bottom: 0;
-}
-
 .persona-select :deep(.el-input__wrapper) {
-  border-radius: 8px;
+  border-radius: 6px;
   border-color: #e5e5e5;
   background: white;
 }
