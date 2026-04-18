@@ -9,13 +9,23 @@
     </div>
     
     <div class="p-6 px-10">
-      <div class="bg-white rounded-2xl border border-[#e5e5e5] overflow-hidden max-w-[1400px] mx-auto">
-        <div class="p-4 flex items-center gap-4">
+      <div class="bg-white rounded-2xl border border-[#e5e5e5] overflow-hidden max-w-[1200px] mx-auto">
+        <div class="p-4 flex items-center gap-4 flex-wrap">
+          <el-input
+            v-model="filterForm.package_title"
+            placeholder="内容包标题"
+            clearable
+            class="w-40"
+          />
+          
           <el-select
             v-model="filterForm.status"
             placeholder="状态"
             clearable
-            class="w-32"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            class="w-40"
           >
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -24,10 +34,23 @@
             v-model="filterForm.platform"
             placeholder="平台"
             clearable
-            class="w-28"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            class="w-40"
           >
             <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+          
+          <el-date-picker
+            v-model="filterForm.dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="发布开始时间"
+            end-placeholder="发布结束时间"
+            value-format="YYYY-MM-DD"
+            class="w-64"
+          />
           
           <el-button type="primary" class="bg-[#1a1a1a] border-none hover:bg-[#333]" @click="handleSearch">
             搜索
@@ -69,36 +92,37 @@
                     </el-tag>
                   </div>
                   
-                  <div class="text-sm text-[#666] mb-2">
-                    发布时间：{{ item.publish_time }}
-                  </div>
-                  
-                  <div v-if="item.package?.items" class="flex items-center gap-2 mb-2">
-                    <span class="text-xs text-[#999]">包含：</span>
-                    <div class="flex items-center gap-1">
-                      <template v-for="(pkgItem, index) in item.package.items.slice(0, 3)" :key="index">
-                        <el-tag
-                          v-if="pkgItem.item_type === 'content'"
-                          type="primary"
-                          size="small"
-                          class="rounded-md"
-                        >
-                          文案
-                        </el-tag>
-                        <img
-                          v-else-if="pkgItem.item_type === 'image'"
-                          :src="pkgItem.url"
-                          class="w-8 h-8 rounded object-cover"
-                        />
-                      </template>
-                      <span v-if="item.package.items.length > 3" class="text-xs text-[#999]">
-                        +{{ item.package.items.length - 3 }}
-                      </span>
+                  <div class="flex mb-2 gap-8">
+                    <div class="text-sm text-[#666]">
+                      发布时间：{{ item.publish_time }}
+                    </div>
+                    <div class="text-sm text-[#666]">
+                      创建时间：{{ item.create_time }}
+                    </div>
+                    <div v-if="item.update_time && item.update_time !== item.create_time" class="text-sm text-[#666]">
+                      更新时间：{{ item.update_time }}
                     </div>
                   </div>
                   
-                  <div v-if="item.schedule_note" class="text-xs text-[#999]">
-                    备注：{{ item.schedule_note }}
+                  <div v-if="item.schedule_note" class="text-sm text-[#999] mb-2">
+                    排期备注：{{ item.schedule_note }}
+                  </div>
+                  
+                  <div v-if="item.publish_note" class="text-sm mb-2">
+                    <span class="text-[#999]">发布结果：</span>
+                    <span class="text-[#52c41a]">{{ item.publish_note }}</span>
+                  </div>
+                  
+                  <div v-if="getPackageImages(item).length > 0" class="flex items-center gap-2 mt-2">
+                    <img
+                      v-for="(img, imgIndex) in getPackageImages(item).slice(0, 4)"
+                      :key="imgIndex"
+                      :src="img.url"
+                      class="w-12 h-12 rounded-lg object-cover"
+                    />
+                    <span v-if="getPackageImages(item).length > 4" class="text-xs text-[#999]">
+                      +{{ getPackageImages(item).length - 4 }}
+                    </span>
                   </div>
                 </div>
                 
@@ -111,7 +135,7 @@
                       标记已发布
                     </el-button>
                     <el-button size="small" type="danger" @click="handleCancel(item)">
-                      取消
+                      取消排期
                     </el-button>
                   </template>
                   <template v-else-if="item.status === 'published'">
@@ -150,8 +174,8 @@
       width="700px"
       destroy-on-close
     >
-      <div v-if="currentSchedule" class="space-y-4">
-        <div class="flex items-center gap-4">
+      <div v-if="currentSchedule" class="flex flex-col max-h-[60vh]">
+        <div class="flex items-center gap-4 mb-4 flex-shrink-0">
           <div class="text-lg font-semibold text-[#1a1a1a]">
             {{ currentSchedule.package?.title }}
           </div>
@@ -163,7 +187,7 @@
           </el-tag>
         </div>
         
-        <div class="grid grid-cols-2 gap-4 text-sm">
+        <div class="grid grid-cols-2 gap-4 text-sm mb-4 flex-shrink-0">
           <div>
             <span class="text-[#999]">发布时间：</span>
             <span class="text-[#333]">{{ currentSchedule.publish_time }}</span>
@@ -172,45 +196,43 @@
             <span class="text-[#999]">创建时间：</span>
             <span class="text-[#333]">{{ currentSchedule.create_time }}</span>
           </div>
+          <div v-if="currentSchedule.update_time">
+            <span class="text-[#999]">更新时间：</span>
+            <span class="text-[#333]">{{ currentSchedule.update_time }}</span>
+          </div>
         </div>
         
-        <div v-if="currentSchedule.schedule_note" class="text-sm">
+        <div v-if="currentSchedule.schedule_note" class="text-sm mb-4 flex-shrink-0">
           <span class="text-[#999]">排期备注：</span>
           <span class="text-[#333]">{{ currentSchedule.schedule_note }}</span>
         </div>
         
-        <div v-if="currentSchedule.package?.items" class="border-t border-[#e5e5e5] pt-4">
-          <div class="text-sm font-medium text-[#666] mb-3">内容项</div>
-          <div class="space-y-3 max-h-[300px] overflow-y-auto">
+        <div v-if="currentSchedule.publish_note" class="text-sm mb-4 flex-shrink-0">
+          <span class="text-[#999]">发布结果：</span>
+          <span class="text-[#52c41a]">{{ currentSchedule.publish_note }}</span>
+        </div>
+        
+        <div v-if="currentSchedule.package?.items && currentSchedule.package.items.length > 0" class="border-t border-[#e5e5e5] pt-4 flex-1 overflow-y-auto min-h-0">
+          <div
+            v-for="(pkgItem, index) in contentItems"
+            :key="`content-${index}`"
+            class="mb-4 last:mb-0"
+          >
+            <div class="text-[#333] text-[15px] leading-relaxed whitespace-pre-wrap">{{ pkgItem.content }}</div>
+          </div>
+          
+          <div v-if="imageItems.length > 0" class="flex flex-wrap gap-3 mt-4">
             <div
-              v-for="(pkgItem, index) in currentSchedule.package.items"
-              :key="index"
-              class="p-3 bg-[#fafafa] rounded-lg"
+              v-for="(img, imgIndex) in imageItems"
+              :key="`image-${imgIndex}`"
+              class="relative cursor-pointer group"
             >
-              <div class="flex items-center gap-2 mb-2">
-                <el-tag
-                  :type="pkgItem.item_type === 'content' ? 'primary' : 'success'"
-                  size="small"
-                  class="rounded-md"
-                >
-                  {{ pkgItem.item_type === 'content' ? '文案' : '图片' }}
-                </el-tag>
-              </div>
-              
-              <template v-if="pkgItem.item_type === 'content'">
-                <div class="text-sm text-[#333] whitespace-pre-wrap">{{ pkgItem.content }}</div>
-              </template>
-              <template v-else>
-                <div class="flex items-center gap-3">
-                  <img
-                    :src="pkgItem.url"
-                    class="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm text-[#333]">{{ pkgItem.prompt }}</div>
-                  </div>
-                </div>
-              </template>
+              <img
+                :src="img.url"
+                class="h-[200px] w-auto object-cover rounded-lg"
+                loading="lazy"
+              />
+              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg"></div>
             </div>
           </div>
         </div>
@@ -293,7 +315,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Calendar } from '@element-plus/icons-vue'
 import { getScheduleList, updateSchedule } from '@/api/schedule'
@@ -322,8 +344,10 @@ const statusOptions = [
 ]
 
 const filterForm = reactive({
-  status: '',
-  platform: ''
+  package_title: '',
+  status: [],
+  platform: [],
+  dateRange: null
 })
 
 const pagination = reactive({
@@ -361,19 +385,47 @@ const getStatusText = (status) => {
   return texts[status] || status
 }
 
+const contentItems = computed(() => {
+  if (!currentSchedule.value?.package?.items) return []
+  return currentSchedule.value.package.items.filter(item => item.item_type === 'content')
+})
+
+const imageItems = computed(() => {
+  if (!currentSchedule.value?.package?.items) return []
+  return currentSchedule.value.package.items.filter(item => item.item_type === 'image')
+})
+
+const getPackageImages = (schedule) => {
+  if (!schedule?.package?.items) return []
+  return schedule.package.items.filter(item => item.item_type === 'image')
+}
+
 const loadScheduleList = async () => {
   try {
     loading.value = true
     const params = {
       page: pagination.page,
-      size: pagination.page_size
+      page_size: pagination.page_size
     }
     
-    if (filterForm.status) {
-      params.status = filterForm.status
+    if (filterForm.package_title) {
+      params.package_title = filterForm.package_title
     }
-    if (filterForm.platform) {
-      params.platform = filterForm.platform
+    if (filterForm.status && filterForm.status.length > 0) {
+      filterForm.status.forEach(s => {
+        if (!params.status) params.status = []
+        params.status.push(s)
+      })
+    }
+    if (filterForm.platform && filterForm.platform.length > 0) {
+      filterForm.platform.forEach(p => {
+        if (!params.platform) params.platform = []
+        params.platform.push(p)
+      })
+    }
+    if (filterForm.dateRange && filterForm.dateRange.length === 2) {
+      params.start_time = filterForm.dateRange[0]
+      params.end_time = filterForm.dateRange[1]
     }
     
     const res = await getScheduleList(params)
@@ -397,8 +449,10 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-  filterForm.status = ''
-  filterForm.platform = ''
+  filterForm.package_title = ''
+  filterForm.status = []
+  filterForm.platform = []
+  filterForm.dateRange = null
   pagination.page = 1
   loadScheduleList()
 }

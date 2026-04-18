@@ -97,8 +97,10 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '@/api/user'
 import { setToken } from '@/utils/auth'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const formRef = ref(null)
 const loading = ref(false)
 const rememberMe = ref(false)
@@ -145,17 +147,17 @@ const handleLogin = async () => {
       return
     }
     
-    let accessToken = ''
-    if (res.data && res.data.access_token) {
-      accessToken = res.data.access_token
-    } else if (res.access_token) {
-      accessToken = res.access_token
-    }
-    
-    if (res.code === 200 && accessToken) {
+    if (res.code === 200 && res.access_token) {
       saveRememberedUsername()
+      userStore.setToken(res.access_token)
+      if (res.user_info) {
+        userStore.setUserInfo(res.user_info)
+        if (res.user_info.is_admin) {
+          userStore.isAdmin = true
+        }
+      }
       ElMessage.success('登录成功！')
-      setToken(accessToken)
+      setToken(res.access_token)
       router.push('/home')
     } else {
       ElMessage.error(res.msg || '登录失败：用户名或密码错误')

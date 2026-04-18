@@ -21,9 +21,9 @@
         <div class="flex items-center gap-3">
           <el-button
             v-if="!messageListRef?.selectMode && hasValidMessages"
-            size="small"
+            size="large"
             @click="messageListRef?.enterSelectMode()"
-            class="rounded-lg border-[#e5e5e5] text-[#666] hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
+            class="rounded-xl px-4 font-semibold bg-[#1a1a1a] hover:bg-[#333] text-white hover:text-gray-100 border-none transition-all duration-200"
           >
             <el-icon class="mr-1"><FolderAdd /></el-icon>
             创建内容包

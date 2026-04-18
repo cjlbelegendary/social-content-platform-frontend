@@ -114,6 +114,9 @@
           </el-button>
         </div>
         <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-400">
+            在对话中选择用来创建内容包的文案或图片
+          </span>
           <el-button @click="exitSelectMode">取消</el-button>
           <el-button
             type="primary"

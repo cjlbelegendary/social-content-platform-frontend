@@ -2,10 +2,21 @@ import { defineStore } from 'pinia'
 import { validateAdmin } from '@/api/admin'
 import { removeToken } from '@/utils/auth'
 
+const USER_INFO_KEY = 'user_info'
+
+const getStoredUserInfo = () => {
+  try {
+    const stored = localStorage.getItem(USER_INFO_KEY)
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    return null
+  }
+}
+
 export const useUserStore = defineStore('user', {
   state: () => ({
     isAdmin: false,
-    userInfo: null,
+    userInfo: getStoredUserInfo(),
     token: null
   }),
 
@@ -33,10 +44,12 @@ export const useUserStore = defineStore('user', {
       this.isAdmin = false
       this.userInfo = null
       this.token = null
+      localStorage.removeItem(USER_INFO_KEY)
     },
 
     setUserInfo(info) {
       this.userInfo = info
+      localStorage.setItem(USER_INFO_KEY, JSON.stringify(info))
     },
 
     setToken(token) {

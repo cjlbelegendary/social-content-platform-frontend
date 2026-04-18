@@ -139,9 +139,22 @@
     </div>
     
     <div class="p-4 border-t border-[#e5e5e5]">
-      <el-button @click="$emit('logout')" class="w-full h-10 rounded-xl text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
-        退出登录
-      </el-button>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <el-icon class="text-2xl text-[#666]"><UserFilled /></el-icon>
+          <span class="text-sm font-medium text-[#333]">{{ username }}</span>
+        </div>
+        <el-tooltip content="退出登录" placement="top">
+          <el-button 
+            circle 
+            size="small"
+            @click="$emit('logout')"
+            class="border-[#e5e5e5] text-[#999] hover:text-[#1a1a1a] hover:border-[#d5d5d5]"
+          >
+            <el-icon><SwitchButton /></el-icon>
+          </el-button>
+        </el-tooltip>
+      </div>
     </div>
   </div>
 </template>
@@ -149,8 +162,9 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Document, UserFilled, Calendar, Search, Refresh, FolderOpened } from '@element-plus/icons-vue'
+import { Plus, Document, UserFilled, Calendar, Search, Refresh, FolderOpened, SwitchButton } from '@element-plus/icons-vue'
 import { getHotspotList, refreshHotspots } from '@/api/hotspot'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps({
   isAdmin: Boolean,
@@ -161,11 +175,14 @@ const props = defineProps({
 
 const emit = defineEmits(['new-chat', 'navigate', 'switch-chat', 'use-hotspot', 'logout'])
 
+const userStore = useUserStore()
 const activeTab = ref('history')
 const platform = ref('')
 const searchKeyword = ref('')
 const hotspotList = ref([])
 const hotspotLoading = ref(false)
+
+const username = computed(() => userStore.userInfo?.username || '用户')
 
 const filteredHotspots = computed(() => {
   if (!searchKeyword.value) {

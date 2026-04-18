@@ -10,12 +10,12 @@
     
     <div class="flex-1 flex overflow-hidden">
       <div class="w-[360px] bg-white border-r border-[#e5e5e5] flex flex-col flex-shrink-0">
-        <div class="p-4 border-b border-[#e5e5e5] flex items-center gap-3">
+        <div class="rounded-xl p-4 flex items-center gap-3">
           <el-select
             v-model="filterForm.platform"
             placeholder="平台"
             clearable
-            size="small"
+            size="middle"
             class="w-24"
             @change="loadPackageList"
           >
@@ -26,12 +26,49 @@
             v-model="filterForm.status"
             placeholder="状态"
             clearable
-            size="small"
+            size="middle"
             class="w-28"
             @change="loadPackageList"
           >
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+          
+          <div class="flex-1"></div>
+          
+          <el-button
+            v-if="!batchMode && packageList.length > 0"
+            size="middle"
+            @click="enterBatchMode"
+            type="primary"
+            class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+          >
+            批量排期
+          </el-button>
+        </div>
+        
+        <div v-if="batchMode" class="px-4 py-2 bg-[#f5f5f5] border-b border-[#e5e5e5] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <el-checkbox
+              v-model="selectAll"
+              :indeterminate="isIndeterminate"
+              @change="handleSelectAll"
+            >
+              全选
+            </el-checkbox>
+            <span class="text-sm text-[#666]">已选 {{ selectedPackages.length }} 项</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <el-button size="small" @click="exitBatchMode">取消</el-button>
+            <el-button
+              size="small"
+              type="primary"
+              class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+              :disabled="selectedPackages.length === 0"
+              @click="showBatchScheduleDialog"
+            >
+              创建排期
+            </el-button>
+          </div>
         </div>
         
         <div class="flex-1 overflow-y-auto">
@@ -48,34 +85,44 @@
             <div
               v-for="item in packageList"
               :key="item.id"
-              class="p-3 rounded-xl cursor-pointer transition-all duration-200"
-              :class="selectedPackageId === item.id ? 'bg-[#f0f0f0] border border-[#1a1a1a]' : 'bg-white border border-[#e5e5e5] hover:border-[#d5d5d5]'"
-              @click="handleSelectPackage(item)"
+              class="p-3 rounded-xl cursor-pointer transition-all duration-200 relative"
+              :class="getPackageItemClass(item)"
+              @click="handlePackageClick(item)"
             >
-              <div class="flex items-start justify-between mb-2">
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm font-semibold text-[#1a1a1a] truncate">{{ item.title }}</div>
+              <div v-if="batchMode" class="absolute top-3 left-3">
+                <el-checkbox
+                  :model-value="isPackageSelected(item.id)"
+                  @click.stop
+                  @change="togglePackageSelection(item)"
+                />
+              </div>
+              
+              <div :class="batchMode ? 'pl-6' : ''">
+                <div class="flex items-start justify-between mb-2">
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold text-[#1a1a1a] truncate">{{ item.title }}</div>
+                  </div>
+                  <el-tag
+                    :type="getStatusType(item.status)"
+                    size="small"
+                    class="rounded-md ml-2 flex-shrink-0"
+                  >
+                    {{ getStatusText(item.status) }}
+                  </el-tag>
                 </div>
-                <el-tag
-                  :type="getStatusType(item.status)"
-                  size="small"
-                  class="rounded-md ml-2 flex-shrink-0"
-                >
-                  {{ getStatusText(item.status) }}
-                </el-tag>
+                
+                <div class="flex items-center gap-2 mb-2">
+                  <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md text-xs">{{ item.platform }}</el-tag>
+                  <span class="text-xs text-[#999]">{{ item.content_count }} 文案 · {{ item.image_count }} 图片</span>
+                </div>
+                
+                <div class="text-xs text-[#999]">{{ item.create_time }}</div>
               </div>
-              
-              <div class="flex items-center gap-2 mb-2">
-                <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md text-xs">{{ item.platform }}</el-tag>
-                <span class="text-xs text-[#999]">{{ item.content_count }} 文案 · {{ item.image_count }} 图片</span>
-              </div>
-              
-              <div class="text-xs text-[#999]">{{ item.create_time }}</div>
             </div>
           </div>
         </div>
         
-        <div class="p-3 border-t border-[#e5e5e5] flex-shrink-0">
+        <div class="p-3 flex-shrink-0">
           <el-pagination
             v-model:current-page="pagination.page"
             v-model:page-size="pagination.page_size"
@@ -171,6 +218,7 @@
               <div class="px-5 py-4 flex-shrink-0 flex justify-end">
                 <el-button
                   type="primary"
+                  size="large"
                   class="bg-[#1a1a1a] border-none hover:bg-[#333]"
                   @click="scheduleDialogVisible = true"
                 >
@@ -225,6 +273,94 @@
       </template>
     </el-dialog>
     
+    <el-dialog
+      v-model="batchScheduleDialogVisible"
+      title="批量创建排期"
+      width="700px"
+      destroy-on-close
+    >
+      <div class="mb-4">
+        <span class="text-sm text-[#666]">已选择 {{ selectedPackages.length }} 个内容包</span>
+      </div>
+      
+      <div class="p-4 bg-[#f0f0f0] rounded-lg mb-4">
+        <div class="text-sm font-medium text-[#333] mb-3">统一设置</div>
+        <div class="grid grid-cols-3 gap-3 items-end">
+          <el-form-item label="发布时间" class="mb-0">
+            <el-date-picker
+              v-model="batchCommonTime"
+              type="datetime"
+              placeholder="统一设置发布时间"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              style="width: 100%"
+              size="small"
+            />
+          </el-form-item>
+          <el-form-item label="排期备注" class="mb-0">
+            <el-input
+              v-model="batchCommonNote"
+              placeholder="统一设置备注"
+              size="small"
+            />
+          </el-form-item>
+          <el-button
+            size="small"
+            type="primary"
+            class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+            @click="applyCommonSettings"
+          >
+            应用到全部
+          </el-button>
+        </div>
+      </div>
+      
+      <div class="space-y-4 max-h-[350px] overflow-y-auto">
+        <div
+          v-for="(item, index) in batchScheduleList"
+          :key="index"
+          class="p-4 bg-[#fafafa] rounded-lg"
+        >
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-[#1a1a1a]">{{ item.title }}</span>
+              <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md text-xs">{{ item.platform }}</el-tag>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <el-form-item label="发布时间" required class="mb-0">
+              <el-date-picker
+                v-model="item.publish_time"
+                type="datetime"
+                placeholder="选择日期时间"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+                size="small"
+              />
+            </el-form-item>
+            <el-form-item label="排期备注" class="mb-0">
+              <el-input
+                v-model="item.schedule_note"
+                placeholder="请输入备注"
+                size="small"
+              />
+            </el-form-item>
+          </div>
+        </div>
+      </div>
+      
+      <template #footer>
+        <el-button @click="batchScheduleDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+          :loading="batchScheduleLoading"
+          @click="handleBatchCreateSchedule"
+        >
+          确认创建
+        </el-button>
+      </template>
+    </el-dialog>
+    
     <ElImageViewer
       v-if="showImageViewer"
       :url-list="[previewImageUrl]"
@@ -240,7 +376,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ElImageViewer } from 'element-plus'
 import { Loading, FolderOpened, ArrowDown } from '@element-plus/icons-vue'
 import { getPackageList, getPackageDetail, deletePackage, copyPackage } from '@/api/package'
-import { createSchedule } from '@/api/schedule'
+import { createSchedule, batchCreateSchedule } from '@/api/schedule'
 
 const router = useRouter()
 
@@ -253,6 +389,15 @@ const scheduleDialogVisible = ref(false)
 const scheduleLoading = ref(false)
 const showImageViewer = ref(false)
 const previewImageUrl = ref('')
+
+const batchMode = ref(false)
+const selectedPackages = ref([])
+const selectAll = ref(false)
+const batchScheduleDialogVisible = ref(false)
+const batchScheduleLoading = ref(false)
+const batchScheduleList = ref([])
+const batchCommonTime = ref('')
+const batchCommonNote = ref('')
 
 const platformOptions = [
   { label: '小红书', value: '小红书' },
@@ -435,6 +580,129 @@ const handleSaveSchedule = async () => {
     console.error('创建排期失败：', error)
   } finally {
     scheduleLoading.value = false
+  }
+}
+
+const enterBatchMode = () => {
+  batchMode.value = true
+  selectedPackages.value = []
+  selectAll.value = false
+}
+
+const exitBatchMode = () => {
+  batchMode.value = false
+  selectedPackages.value = []
+  selectAll.value = false
+}
+
+const isPackageSelected = (id) => {
+  return selectedPackages.value.some(p => p.id === id)
+}
+
+const togglePackageSelection = (item) => {
+  const index = selectedPackages.value.findIndex(p => p.id === item.id)
+  if (index > -1) {
+    selectedPackages.value.splice(index, 1)
+  } else {
+    selectedPackages.value.push(item)
+  }
+  updateSelectAllState()
+}
+
+const handleSelectAll = (val) => {
+  if (val) {
+    selectedPackages.value = [...packageList.value]
+  } else {
+    selectedPackages.value = []
+  }
+}
+
+const updateSelectAllState = () => {
+  selectAll.value = selectedPackages.value.length === packageList.value.length
+}
+
+const isIndeterminate = computed(() => {
+  return selectedPackages.value.length > 0 && selectedPackages.value.length < packageList.value.length
+})
+
+const getPackageItemClass = (item) => {
+  if (batchMode.value) {
+    return isPackageSelected(item.id) 
+      ? 'bg-[#f0f0f0] border border-[#1a1a1a]' 
+      : 'bg-white border border-[#e5e5e5] hover:border-[#d5d5d5]'
+  }
+  return selectedPackageId.value === item.id 
+    ? 'bg-[#f0f0f0] border border-[#1a1a1a]' 
+    : 'bg-white border border-[#e5e5e5] hover:border-[#d5d5d5]'
+}
+
+const handlePackageClick = (item) => {
+  if (batchMode.value) {
+    togglePackageSelection(item)
+  } else {
+    handleSelectPackage(item)
+  }
+}
+
+const showBatchScheduleDialog = () => {
+  batchScheduleList.value = selectedPackages.value.map(p => ({
+    package_id: p.id,
+    title: p.title,
+    platform: p.platform,
+    publish_time: '',
+    schedule_note: ''
+  }))
+  batchCommonTime.value = ''
+  batchCommonNote.value = ''
+  batchScheduleDialogVisible.value = true
+}
+
+const applyCommonSettings = () => {
+  if (!batchCommonTime.value) {
+    ElMessage.warning('请先设置统一发布时间')
+    return
+  }
+  batchScheduleList.value.forEach(item => {
+    item.publish_time = batchCommonTime.value
+    if (batchCommonNote.value) {
+      item.schedule_note = batchCommonNote.value
+    }
+  })
+  ElMessage.success('已应用到全部内容包')
+}
+
+const handleBatchCreateSchedule = async () => {
+  const invalidItems = batchScheduleList.value.filter(item => !item.publish_time)
+  if (invalidItems.length > 0) {
+    ElMessage.warning('请为所有内容包选择发布时间')
+    return
+  }
+  
+  try {
+    batchScheduleLoading.value = true
+    const res = await batchCreateSchedule(
+      batchScheduleList.value.map(item => ({
+        package_id: item.package_id,
+        platform: item.platform,
+        publish_time: item.publish_time,
+        schedule_note: item.schedule_note
+      }))
+    )
+    
+    if (res.code === 200) {
+      ElMessage.success(res.msg || '批量创建排期成功')
+      batchScheduleDialogVisible.value = false
+      exitBatchMode()
+      loadPackageList()
+      router.push('/schedule')
+    } else {
+      ElMessage.error(res.msg || '批量创建排期失败')
+    }
+  } catch (error) {
+    ElMessage.error('批量创建排期失败')
+    console.error('批量创建排期失败：', error)
+  } finally {
+    batchScheduleLoading.value = false
   }
 }
 

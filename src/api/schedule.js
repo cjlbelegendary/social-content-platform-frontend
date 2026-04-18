@@ -4,6 +4,10 @@ export const createSchedule = (data) => {
   return service.post('/schedule/create', data)
 }
 
+export const batchCreateSchedule = (data) => {
+  return service.post('/schedule/batch-create', data)
+}
+
 export const getScheduleList = (params = {}) => {
   return service.get('/schedule/list', { params })
 }

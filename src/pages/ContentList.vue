@@ -9,8 +9,8 @@
     </div>
     
     <div class="p-6 px-10">
-      <div class="bg-white rounded-2xl border border-[#e5e5e5] overflow-hidden max-w-[1400px] mx-auto">
-        <div class="p-4 border-b border-[#e5e5e5] flex items-center gap-4 flex-wrap">
+      <div class="bg-white rounded-2xl border border-[#e5e5e5] overflow-hidden max-w-[1200px] mx-auto">
+        <div class="p-4 flex items-center gap-4 flex-wrap">
           <div class="flex gap-1 p-1 bg-[#f5f5f5] rounded-lg">
             <button
               v-for="tab in typeTabs"
@@ -46,7 +46,7 @@
             v-model="filterForm.keyword"
             placeholder="搜索关键词"
             clearable
-            class="w-48"
+            class="w-64"
             @keyup.enter="handleSearch"
           >
             <template #prefix>
@@ -128,7 +128,7 @@
           </div>
         </div>
         
-        <div class="p-4 border-t border-[#e5e5e5] flex items-center justify-between">
+        <div class="p-4 flex items-center justify-between">
           <div class="text-sm text-[#666]">
             已选择 <span class="font-semibold text-[#1a1a1a]">{{ selectedItems.length }}</span> 项
           </div>
@@ -166,7 +166,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Loading, Document } from '@element-plus/icons-vue'
@@ -182,6 +182,11 @@ const showCreatePackageDialog = ref(false)
 const dateRange = ref([])
 
 const activeType = ref('all')
+
+watch(activeType, () => {
+  pagination.page = 1
+  loadContentList()
+})
 
 const typeTabs = [
   { label: '全部', value: 'all' },
