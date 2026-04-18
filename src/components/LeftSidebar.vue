@@ -20,24 +20,30 @@
       </el-button>
       
       <div class="flex flex-col gap-1.5 mt-2">
-        <el-button size="small" @click="$emit('navigate', 'content-list')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
+        <div>
+          <el-button size="small" @click="$emit('navigate', 'content-list')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
           <el-icon class="mr-2">
             <Document />
           </el-icon>
           历史管理
         </el-button>
-        <el-button v-if="isAdmin" size="small" @click="$emit('navigate', 'user-list')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
-          <el-icon class="mr-2">
-            <UserFilled />
-          </el-icon>
-          用户列表
-        </el-button>
-        <el-button size="small" @click="$emit('navigate', 'schedule')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
+        </div>
+        <div>
+          <el-button size="small" @click="$emit('navigate', 'schedule')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
           <el-icon class="mr-2">
             <Calendar />
           </el-icon>
           排期管理
         </el-button>
+        </div>
+        <div>
+          <el-button v-if="isAdmin" size="small" @click="$emit('navigate', 'user-list')" class="nav-btn w-full h-10 rounded-xl text-sm text-[#666] hover:text-[#1a1a1a] hover:bg-white border border-transparent hover:border-[#e5e5e5] transition-all duration-200">
+          <el-icon class="mr-2">
+            <UserFilled />
+          </el-icon>
+          用户列表
+        </el-button>
+        </div>
       </div>
     </div>
     
