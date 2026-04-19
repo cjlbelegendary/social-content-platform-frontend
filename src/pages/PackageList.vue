@@ -21,6 +21,7 @@
             clearable
             size="middle"
             class="w-24"
+            :disabled="editMode"
             @change="loadPackageList"
           >
             <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -32,6 +33,7 @@
             clearable
             size="middle"
             class="w-28"
+            :disabled="editMode"
             @change="loadPackageList"
           >
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -45,6 +47,7 @@
             @click="enterBatchMode"
             type="primary"
             class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+            :disabled="editMode"
           >
             批量排期
           </el-button>
@@ -89,7 +92,7 @@
             <div
               v-for="item in packageList"
               :key="item.id"
-              class="p-3 rounded-xl cursor-pointer transition-all duration-200 relative"
+              class="p-3 rounded-xl transition-all duration-200 relative"
               :class="getPackageItemClass(item)"
               @click="handlePackageClick(item)"
             >
@@ -106,13 +109,24 @@
                   <div class="flex-1 min-w-0">
                     <div class="text-sm font-semibold text-[#1a1a1a] truncate">{{ item.title }}</div>
                   </div>
-                  <el-tag
-                    :type="getStatusType(item.status)"
-                    size="small"
-                    class="rounded-md ml-2 flex-shrink-0"
-                  >
-                    {{ getStatusText(item.status) }}
-                  </el-tag>
+                  <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                    <el-tag
+                      v-if="editMode && selectedPackageId === item.id"
+                      type="warning"
+                      size="small"
+                      class="rounded-md"
+                    >
+                      编辑中
+                    </el-tag>
+                    <el-tag
+                      v-else
+                      :type="getStatusType(item.status)"
+                      size="small"
+                      class="rounded-md"
+                    >
+                      {{ getStatusText(item.status) }}
+                    </el-tag>
+                  </div>
                 </div>
                 
                 <div class="flex items-center gap-2 mb-2">
@@ -134,6 +148,7 @@
             :page-sizes="[10, 20]"
             layout="prev, pager, next"
             small
+            :disabled="editMode"
             @size-change="loadPackageList"
             @current-change="loadPackageList"
           />
@@ -154,30 +169,71 @@
               <div class="p-5 flex-shrink-0">
                 <div class="flex items-start justify-between mb-3">
                   <div class="flex-1 min-w-0">
-                    <div class="text-lg font-semibold text-[#1a1a1a] mb-2">{{ currentPackage.title }}</div>
-                    <div class="flex items-center gap-2">
-                      <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md">{{ currentPackage.platform }}</el-tag>
-                      <el-tag :type="getStatusType(currentPackage.status)" size="small" class="rounded-md">
-                        {{ getStatusText(currentPackage.status) }}
-                      </el-tag>
-                    </div>
+                    <template v-if="editMode">
+                      <div class="flex gap-8">
+                        <div>
+                          <span class="text-sm text-[#999]">标题</span>
+                          <el-input
+                            v-model="editForm.title"
+                            placeholder="请输入标题"
+                            size="small"
+                            maxlength="64"
+                            class="ml-2 w-[480px]"
+                          />
+                        </div>
+                        <div>
+                          <span class="text-sm text-[#999]">平台</span>
+                          <el-select
+                            size="small"
+                            v-model="editForm.platform"
+                            placeholder="选择平台"
+                            class="ml-2 w-32"
+                          >
+                            <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+                          </el-select>
+                        </div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="text-lg font-semibold text-[#1a1a1a] mb-2">{{ currentPackage.title }}</div>
+                      <div class="flex items-center gap-2">
+                        <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md">{{ currentPackage.platform }}</el-tag>
+                        <el-tag :type="getStatusType(currentPackage.status)" size="small" class="rounded-md">
+                          {{ getStatusText(currentPackage.status) }}
+                        </el-tag>
+                      </div>
+                    </template>
                   </div>
                   <div class="flex items-center gap-2 ml-4">
-                    <el-button size="small" @click="handleEdit">
-                      编辑
-                    </el-button>
-                    <el-dropdown trigger="click" @command="handleCommand">
-                      <el-button size="small">
-                        更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                    <template v-if="editMode">
+                      <el-button size="small" @click="cancelEdit">取消</el-button>
+                      <el-button
+                        size="small"
+                        type="primary"
+                        class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+                        :loading="editLoading"
+                        @click="handleSaveEdit"
+                      >
+                        保存
                       </el-button>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item command="copy">复制</el-dropdown-item>
-                          <el-dropdown-item command="schedule">创建排期</el-dropdown-item>
-                          <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
+                    </template>
+                    <template v-else>
+                      <el-button size="small" type="primary" class="bg-[#1a1a1a] border-none hover:bg-[#333]" @click="handleEdit">
+                        编辑
+                      </el-button>
+                      <el-dropdown trigger="click" @command="handleCommand">
+                        <el-button size="small">
+                          更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                        </el-button>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item command="copy">复制</el-dropdown-item>
+                            <el-dropdown-item command="schedule">创建排期</el-dropdown-item>
+                            <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
+                    </template>
                   </div>
                 </div>
                 <div class="text-xs text-[#999]">创建时间：{{ currentPackage.create_time }}</div>
@@ -187,6 +243,85 @@
                 <div v-if="detailLoading" class="p-10 flex items-center justify-center">
                   <el-icon class="text-3xl text-[#999] animate-spin"><Loading /></el-icon>
                 </div>
+                
+                <template v-else-if="editMode">
+                  <div class="p-5">
+                    <div class="mb-4">
+                      <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-[#333]">文案内容</span>
+                        <el-button
+                          size="small"
+                          type="primary"
+                          link
+                          @click="openSelectMaterialDialog('content')"
+                        >
+                          <el-icon class="mr-1"><Plus /></el-icon>添加文案
+                        </el-button>
+                      </div>
+                      <div v-if="editForm.contentItems.length > 0" class="space-y-3">
+                        <div
+                          v-for="(item, index) in editForm.contentItems"
+                          :key="`edit-content-${index}`"
+                          class="p-3 bg-[#fafafa] rounded-lg relative group"
+                        >
+                          <div class="text-[#333] text-[15px] leading-relaxed whitespace-pre-wrap pr-8">{{ item.content }}</div>
+                          <el-button
+                            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            size="small"
+                            type="danger"
+                            link
+                            @click="removeEditItem('content', index)"
+                          >
+                            <el-icon><Delete /></el-icon>
+                          </el-button>
+                        </div>
+                      </div>
+                      <div v-else class="text-center text-[#999] py-6 bg-[#fafafa] rounded-lg">
+                        暂无文案，点击上方按钮添加
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-[#333]">图片</span>
+                        <el-button
+                          size="small"
+                          type="primary"
+                          link
+                          @click="openSelectMaterialDialog('image')"
+                        >
+                          <el-icon class="mr-1"><Plus /></el-icon>添加图片
+                        </el-button>
+                      </div>
+                      <div v-if="editForm.imageItems.length > 0" class="flex flex-wrap gap-3">
+                        <div
+                          v-for="(item, index) in editForm.imageItems"
+                          :key="`edit-image-${index}`"
+                          class="relative group"
+                        >
+                          <img
+                            :src="item.url"
+                            class="h-[120px] w-auto object-cover rounded-lg"
+                          />
+                          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors rounded-lg flex items-center justify-center">
+                            <el-button
+                              type="danger"
+                              size="small"
+                              circle
+                              class="opacity-0 group-hover:opacity-100 transition-opacity"
+                              @click="removeEditItem('image', index)"
+                            >
+                              <el-icon><Delete /></el-icon>
+                            </el-button>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="text-center text-[#999] py-6 bg-[#fafafa] rounded-lg">
+                        暂无图片，点击上方按钮添加
+                      </div>
+                    </div>
+                  </div>
+                </template>
                 
                 <div v-else-if="currentPackage.items && currentPackage.items.length > 0" class="p-5">
                   <div
@@ -221,6 +356,7 @@
               
               <div class="px-5 py-4 flex-shrink-0 flex justify-end">
                 <el-button
+                  v-if="!editMode"
                   type="primary"
                   size="large"
                   class="bg-[#1a1a1a] border-none hover:bg-[#333]"
@@ -365,6 +501,130 @@
       </template>
     </el-dialog>
     
+    <el-dialog
+      v-model="selectMaterialDialogVisible"
+      :title="selectMaterialType === 'content' ? '选择文案' : '选择图片'"
+      width="700px"
+      destroy-on-close
+    >
+      <div class="mb-4 flex items-center gap-3">
+        <el-select
+          v-model="materialFilter.platform"
+          placeholder="平台"
+          clearable
+          size="small"
+          class="w-28"
+          @change="loadMaterialList"
+        >
+          <el-option v-for="item in platformOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+        <el-input
+          v-model="materialFilter.keyword"
+          :placeholder="selectMaterialType === 'content' ? '搜索文案内容' : '搜索图片描述'"
+          clearable
+          size="small"
+          class="w-48"
+          @keyup.enter="loadMaterialList"
+          @clear="loadMaterialList"
+        >
+          <template #append>
+            <el-button @click="loadMaterialList">
+              <el-icon><Search /></el-icon>
+            </el-button>
+          </template>
+        </el-input>
+      </div>
+      
+      <div v-if="materialLoading" class="py-10 flex items-center justify-center">
+        <el-icon class="text-3xl text-[#999] animate-spin"><Loading /></el-icon>
+      </div>
+      
+      <div v-else-if="materialList.length === 0" class="py-10 text-center text-[#999]">
+        暂无可选素材
+      </div>
+      
+      <div v-else class="max-h-[400px] overflow-y-auto">
+        <template v-if="selectMaterialType === 'content'">
+          <div
+            v-for="item in materialList"
+            :key="item.id"
+            class="p-3 rounded-lg cursor-pointer transition-all mb-2"
+            :class="isMaterialSelected(item.id) ? 'bg-[#e6f4ff] border border-[#1a1a1a]' : 'bg-[#fafafa] hover:bg-[#f0f0f0] border border-transparent'"
+            @click="handleMaterialSelect(item)"
+          >
+            <div class="flex items-start gap-2">
+              <el-checkbox
+                :model-value="isMaterialSelected(item.id)"
+                @click.stop
+                @change="handleMaterialSelect(item)"
+              />
+              <div class="flex-1 min-w-0">
+                <div class="text-sm text-[#333] line-clamp-3">{{ item.content }}</div>
+                <div class="flex items-center gap-2 mt-1">
+                  <el-tag size="small" class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded">{{ item.platform }}</el-tag>
+                  <span class="text-xs text-[#999]">{{ item.create_time }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+        
+        <template v-else>
+          <div class="grid grid-cols-4 gap-3">
+            <div
+              v-for="item in materialList"
+              :key="item.id"
+              class="relative cursor-pointer group rounded-lg overflow-hidden"
+              :class="isMaterialSelected(item.id) ? 'ring-2 ring-[#1a1a1a]' : ''"
+              @click="handleMaterialSelect(item)"
+            >
+              <img
+                :src="item.url"
+                class="w-full h-[120px] object-cover"
+              />
+              <div
+                v-if="isMaterialSelected(item.id)"
+                class="absolute top-2 right-2 w-5 h-5 bg-[#1a1a1a] rounded-full flex items-center justify-center"
+              >
+                <el-icon class="text-white text-xs"><Check /></el-icon>
+              </div>
+              <div class="absolute bottom-0 left-0 right-0 bg-black/50 p-1">
+                <div class="text-xs text-white truncate">{{ item.prompt || '无描述' }}</div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+      
+      <div v-if="materialList.length > 0" class="mt-4 flex justify-center">
+        <el-pagination
+          v-model:current-page="materialPagination.page"
+          :page-size="materialPagination.size"
+          :total="materialPagination.total"
+          layout="prev, pager, next"
+          small
+          @current-change="loadMaterialList"
+        />
+      </div>
+      
+      <template #footer>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-[#666]">已选 {{ selectedMaterials.length }} 项</span>
+          <div>
+            <el-button @click="selectMaterialDialogVisible = false">取消</el-button>
+            <el-button
+              type="primary"
+              class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+              :disabled="selectedMaterials.length === 0"
+              @click="confirmSelectMaterial"
+            >
+              确认添加
+            </el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
+    
     <ElImageViewer
       v-if="showImageViewer"
       :url-list="[previewImageUrl]"
@@ -378,9 +638,10 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ElImageViewer } from 'element-plus'
-import { Loading, FolderOpened, ArrowDown } from '@element-plus/icons-vue'
-import { getPackageList, getPackageDetail, deletePackage, copyPackage } from '@/api/package'
+import { Loading, FolderOpened, ArrowDown, Plus, Delete, Search, Check } from '@element-plus/icons-vue'
+import { getPackageList, getPackageDetail, deletePackage, copyPackage, updatePackage } from '@/api/package'
 import { createSchedule, batchCreateSchedule } from '@/api/schedule'
+import { getContents } from '@/api/content'
 
 const router = useRouter()
 const route = useRoute()
@@ -403,6 +664,30 @@ const batchScheduleLoading = ref(false)
 const batchScheduleList = ref([])
 const batchCommonTime = ref('')
 const batchCommonNote = ref('')
+
+const editMode = ref(false)
+const editForm = reactive({
+  title: '',
+  platform: '',
+  contentItems: [],
+  imageItems: []
+})
+const editLoading = ref(false)
+
+const selectMaterialDialogVisible = ref(false)
+const selectMaterialType = ref('content')
+const materialList = ref([])
+const materialLoading = ref(false)
+const materialPagination = reactive({
+  page: 1,
+  size: 10,
+  total: 0
+})
+const materialFilter = reactive({
+  platform: '',
+  keyword: ''
+})
+const selectedMaterials = ref([])
 
 const platformOptions = [
   { label: '小红书', value: '小红书' },
@@ -526,7 +811,161 @@ const loadPackageDetail = async (packageId) => {
 }
 
 const handleEdit = () => {
-  router.push(`/package-edit/${currentPackage.value.id}`)
+  editMode.value = true
+  editForm.title = currentPackage.value.title
+  editForm.platform = currentPackage.value.platform
+  editForm.contentItems = contentItems.value.map(item => ({
+    id: item.item_id,
+    content: item.content,
+    item_type: 'content'
+  }))
+  editForm.imageItems = imageItems.value.map(item => ({
+    id: item.item_id,
+    url: item.url,
+    item_type: 'image'
+  }))
+}
+
+const cancelEdit = () => {
+  editMode.value = false
+  editForm.title = ''
+  editForm.platform = ''
+  editForm.contentItems = []
+  editForm.imageItems = []
+}
+
+const openSelectMaterialDialog = (type) => {
+  selectMaterialType.value = type
+  selectedMaterials.value = []
+  materialPagination.page = 1
+  materialFilter.platform = ''
+  materialFilter.keyword = ''
+  selectMaterialDialogVisible.value = true
+  loadMaterialList()
+}
+
+const loadMaterialList = async () => {
+  try {
+    materialLoading.value = true
+    const params = {
+      page: materialPagination.page,
+      size: materialPagination.size,
+      type: selectMaterialType.value
+    }
+    if (materialFilter.platform) {
+      params.platform = materialFilter.platform
+    }
+    if (materialFilter.keyword) {
+      params.keyword = materialFilter.keyword
+    }
+    
+    const res = await getContents(params)
+    if (res.code === 200) {
+      materialList.value = res.data?.list || []
+      materialPagination.total = res.data?.total || 0
+    } else {
+      ElMessage.error(res.msg || '获取素材列表失败')
+    }
+  } catch (error) {
+    ElMessage.error('获取素材列表失败')
+    console.error('获取素材列表失败：', error)
+  } finally {
+    materialLoading.value = false
+  }
+}
+
+const handleMaterialSelect = (material) => {
+  const index = selectedMaterials.value.findIndex(m => m.id === material.id)
+  if (index > -1) {
+    selectedMaterials.value.splice(index, 1)
+  } else {
+    selectedMaterials.value.push(material)
+  }
+}
+
+const isMaterialSelected = (id) => {
+  return selectedMaterials.value.some(m => m.id === id)
+}
+
+const confirmSelectMaterial = () => {
+  if (selectedMaterials.value.length === 0) {
+    ElMessage.warning('请选择素材')
+    return
+  }
+  
+  if (selectMaterialType.value === 'content') {
+    selectedMaterials.value.forEach(material => {
+      if (!editForm.contentItems.some(item => item.id === material.id)) {
+        editForm.contentItems.push({
+          id: material.id,
+          content: material.content,
+          item_type: 'content'
+        })
+      }
+    })
+  } else {
+    selectedMaterials.value.forEach(material => {
+      if (!editForm.imageItems.some(item => item.id === material.id)) {
+        editForm.imageItems.push({
+          id: material.id,
+          url: material.url,
+          item_type: 'image'
+        })
+      }
+    })
+  }
+  
+  selectMaterialDialogVisible.value = false
+  selectedMaterials.value = []
+}
+
+const removeEditItem = (type, index) => {
+  if (type === 'content') {
+    editForm.contentItems.splice(index, 1)
+  } else {
+    editForm.imageItems.splice(index, 1)
+  }
+}
+
+const handleSaveEdit = async () => {
+  if (!editForm.title.trim()) {
+    ElMessage.warning('请输入标题')
+    return
+  }
+  
+  try {
+    editLoading.value = true
+    const items = [
+      ...editForm.contentItems.map(item => ({
+        item_type: 'content',
+        item_id: item.id
+      })),
+      ...editForm.imageItems.map(item => ({
+        item_type: 'image',
+        item_id: item.id
+      }))
+    ]
+    
+    const res = await updatePackage(currentPackage.value.id, {
+      title: editForm.title,
+      platform: editForm.platform,
+      items: items
+    })
+    
+    if (res.code === 200) {
+      ElMessage.success('保存成功')
+      editMode.value = false
+      await loadPackageDetail(currentPackage.value.id)
+      loadPackageList()
+    } else {
+      ElMessage.error(res.msg || '保存失败')
+    }
+  } catch (error) {
+    ElMessage.error('保存失败')
+    console.error('保存内容包失败：', error)
+  } finally {
+    editLoading.value = false
+  }
 }
 
 const handleCommand = async (command) => {
@@ -631,17 +1070,26 @@ const isIndeterminate = computed(() => {
 })
 
 const getPackageItemClass = (item) => {
+  if (editMode.value) {
+    if (selectedPackageId.value === item.id) {
+      return 'bg-[#fff7e6] border border-[#faad14] cursor-not-allowed'
+    }
+    return 'bg-white border border-[#e5e5e5] opacity-50 cursor-not-allowed'
+  }
   if (batchMode.value) {
     return isPackageSelected(item.id) 
-      ? 'bg-[#f0f0f0] border border-[#1a1a1a]' 
-      : 'bg-white border border-[#e5e5e5] hover:border-[#d5d5d5]'
+      ? 'bg-[#f0f0f0] border border-[#1a1a1a] cursor-pointer' 
+      : 'bg-white border border-[#e5e5e5] hover:border-[#d5d5d5] cursor-pointer'
   }
   return selectedPackageId.value === item.id 
-    ? 'bg-[#f0f0f0] border border-[#1a1a1a]' 
-    : 'bg-white border border-[#e5e5e5] hover:border-[#d5d5d5]'
+    ? 'bg-[#f0f0f0] border border-[#1a1a1a] cursor-pointer' 
+    : 'bg-white border border-[#e5e5e5] hover:border-[#d5d5d5] cursor-pointer'
 }
 
 const handlePackageClick = (item) => {
+  if (editMode.value) {
+    return
+  }
   if (batchMode.value) {
     togglePackageSelection(item)
   } else {
