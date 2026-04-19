@@ -12,9 +12,9 @@
       </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto p-6 px-10">
+    <div class="flex-1 overflow-y-auto p-6 px-10 pb-32">
       <div class="bg-white rounded-2xl border border-[#e5e5e5] overflow-hidden max-w-[1200px] mx-auto">
-        <div class="p-4 flex items-center gap-4 flex-wrap sticky top-0 bg-white z-10 border-b border-[#e5e5e5]">
+        <div class="p-4 flex items-center gap-4 flex-wrap sticky top-0 bg-white z-10">
           <div class="flex gap-1 p-1 bg-[#f5f5f5] rounded-lg">
             <button
               v-for="tab in typeTabs"
@@ -83,6 +83,18 @@
               </button>
             </el-tooltip>
           </div>
+          
+          <div class="flex-1"></div>
+          
+          <el-button
+            type="primary"
+            class="bg-[#1a1a1a] border-none hover:bg-[#333]"
+            :disabled="selectMode"
+            @click="enterSelectMode"
+          >
+            <el-icon class="mr-1"><FolderAdd /></el-icon>
+            创建内容包
+          </el-button>
         </div>
         
         <div class="min-h-[400px] relative">
@@ -100,12 +112,13 @@
               v-for="item in contentList"
               :key="`${item.type}-${item.id}`"
               class="p-4 rounded-xl border transition-all duration-200 cursor-pointer hover:shadow-md"
-              :class="selectedItems.includes(item) ? 'border-[#1a1a1a] bg-[#fafafa]' : 'border-[#e5e5e5] bg-white hover:border-[#d5d5d5]'"
-              @click="toggleSelect(item)"
+              :class="getItemClass(item)"
+              @click="handleCardClick(item)"
             >
               <div class="flex items-start gap-3">
                 <el-checkbox
-                  :model-value="selectedItems.includes(item)"
+                  v-if="selectMode"
+                  :model-value="isSelected(item)"
                   @change="toggleSelect(item)"
                   @click.stop
                 />
@@ -119,7 +132,7 @@
                     >
                       {{ item.type === 'content' ? '文案' : '图片' }}
                     </el-tag>
-                    <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md">{{ item.platform }}</el-tag>
+                    <el-tag class="bg-[#f5f5f5] text-[#666] border-[#e5e5e5] rounded-md text-xs">{{ item.platform }}</el-tag>
                     <el-tag
                       v-if="item.is_in_package"
                       type="warning"
@@ -146,29 +159,54 @@
                     </div>
                   </template>
                   
-                  <div class="text-xs text-[#999]">{{ item.create_time_str }}</div>
+                  <div class="flex items-center justify-between">
+                    <div class="text-xs text-[#999]">{{ item.create_time_str }}</div>
+                    <div v-if="item.session" class="text-xs text-[#1a1a1a] flex items-center gap-1">
+                      <el-icon><ChatDotRound /></el-icon>
+                      <span class="truncate max-w-[120px]">{{ item.session.session_title }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
         
-        <div class="p-4 flex items-center justify-between">
-          <div class="text-sm text-[#666]">
-            已选择 <span class="font-semibold text-[#1a1a1a]">{{ selectedItems.length }}</span> 项
+        <div class="p-4 flex items-center justify-end border-t border-[#e5e5e5]">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.page_size"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            @size-change="loadContentList"
+            @current-change="loadContentList"
+          />
+        </div>
+      </div>
+    </div>
+    
+    <Transition name="slide-up">
+      <div
+        v-if="selectMode"
+        class="fixed bottom-0 left-0 right-0 bg-white border-t border-[#e5e5e5] shadow-lg z-20"
+      >
+        <div class="max-w-[1200px] mx-auto px-10 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <el-checkbox
+              :model-value="isAllSelected"
+              :indeterminate="isIndeterminate"
+              @change="handleSelectAll"
+            >
+              全选
+            </el-checkbox>
+            <div class="text-sm text-[#666]">
+              已选择 <span class="font-semibold text-[#1a1a1a]">{{ selectedItems.length }}</span> 项
+            </div>
           </div>
           
-          <div class="flex items-center gap-4">
-            <el-pagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.page_size"
-              :total="pagination.total"
-              :page-sizes="[10, 20, 50]"
-              layout="total, sizes, prev, pager, next"
-              @size-change="loadContentList"
-              @current-change="loadContentList"
-            />
-            
+          <div class="flex items-center gap-3">
+            <el-button @click="exitSelectMode">取消</el-button>
             <el-button
               type="primary"
               class="bg-[#1a1a1a] border-none hover:bg-[#333]"
@@ -180,7 +218,13 @@
           </div>
         </div>
       </div>
-    </div>
+    </Transition>
+    
+    <ContentDetailDialog
+      v-model:visible="detailDialogVisible"
+      :content-data="currentDetail"
+      @go-to-session="handleGoToSession"
+    />
     
     <CreatePackageDialog
       v-model="showCreatePackageDialog"
@@ -194,8 +238,9 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Loading, Document, Menu, Grid } from '@element-plus/icons-vue'
+import { Search, Loading, Document, Menu, Grid, FolderAdd, ChatDotRound } from '@element-plus/icons-vue'
 import { getContents } from '@/api/content'
+import ContentDetailDialog from '@/components/ContentDetailDialog.vue'
 import CreatePackageDialog from '@/components/CreatePackageDialog.vue'
 
 const router = useRouter()
@@ -206,6 +251,10 @@ const selectedItems = ref([])
 const showCreatePackageDialog = ref(false)
 const dateRange = ref([])
 const columnMode = ref(2)
+
+const selectMode = ref(false)
+const detailDialogVisible = ref(false)
+const currentDetail = ref(null)
 
 const activeType = ref('all')
 
@@ -250,6 +299,14 @@ const selectedItemsForPackage = computed(() => {
     style: item.style,
     size: item.size
   }))
+})
+
+const isAllSelected = computed(() => {
+  return contentList.value.length > 0 && selectedItems.value.length === contentList.value.length
+})
+
+const isIndeterminate = computed(() => {
+  return selectedItems.value.length > 0 && selectedItems.value.length < contentList.value.length
 })
 
 const loadContentList = async () => {
@@ -301,6 +358,22 @@ const handleReset = () => {
   loadContentList()
 }
 
+const enterSelectMode = () => {
+  selectMode.value = true
+  selectedItems.value = []
+}
+
+const exitSelectMode = () => {
+  selectMode.value = false
+  selectedItems.value = []
+}
+
+const isSelected = (item) => {
+  return selectedItems.value.some(
+    i => i.type === item.type && i.id === item.id
+  )
+}
+
 const toggleSelect = (item) => {
   const index = selectedItems.value.findIndex(
     i => i.type === item.type && i.id === item.id
@@ -312,8 +385,41 @@ const toggleSelect = (item) => {
   }
 }
 
+const handleSelectAll = (val) => {
+  if (val) {
+    selectedItems.value = [...contentList.value]
+  } else {
+    selectedItems.value = []
+  }
+}
+
+const getItemClass = (item) => {
+  if (selectMode.value) {
+    return isSelected(item) 
+      ? 'border-[#1a1a1a] bg-[#fafafa]' 
+      : 'border-[#e5e5e5] bg-white hover:border-[#d5d5d5]'
+  }
+  return 'border-[#e5e5e5] bg-white hover:border-[#d5d5d5]'
+}
+
+const handleCardClick = (item) => {
+  if (selectMode.value) {
+    toggleSelect(item)
+  } else {
+    currentDetail.value = item
+    detailDialogVisible.value = true
+  }
+}
+
+const handleGoToSession = (sessionId) => {
+  router.push({
+    path: '/home',
+    query: { sessionId }
+  })
+}
+
 const handlePackageCreated = () => {
-  selectedItems.value = []
+  exitSelectMode()
   loadContentList()
   router.push('/package-list')
 }
@@ -329,5 +435,16 @@ onMounted(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
 }
 </style>

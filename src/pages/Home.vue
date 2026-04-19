@@ -82,7 +82,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, reactive, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document, FolderAdd } from '@element-plus/icons-vue'
 
@@ -100,6 +100,7 @@ import { generateContentStream } from '@/api/content'
 import { generateImage, regenerateImage, generateImageFromContent } from '@/api/image'
 
 const router = useRouter()
+const route = useRoute()
 const messageListRef = ref(null)
 const userInput = ref('')
 const generateMode = ref('text')
@@ -493,6 +494,19 @@ const handlePackageCreated = () => {
 onMounted(async () => {
   await userStore.checkAdminStatus()
   await chatStore.loadHistory()
+  
+  if (route.query.sessionId) {
+    const sessionId = parseInt(route.query.sessionId)
+    if (!isNaN(sessionId)) {
+      const index = chatStore.chatHistory.findIndex(
+        chat => chat.session_id === sessionId || chat.session_id === String(sessionId)
+      )
+      if (index !== -1) {
+        await chatStore.switchChat(index)
+      }
+    }
+  }
+  
   scrollToBottom()
 })
 
