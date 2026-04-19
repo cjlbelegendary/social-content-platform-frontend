@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { validateAdmin } from '@/api/admin'
 import { removeToken } from '@/utils/auth'
+import { useChatStore } from './chat'
 
 const USER_INFO_KEY = 'user_info'
 
@@ -45,6 +46,9 @@ export const useUserStore = defineStore('user', {
       this.userInfo = null
       this.token = null
       localStorage.removeItem(USER_INFO_KEY)
+      
+      const chatStore = useChatStore()
+      chatStore.reset()
     },
 
     setUserInfo(info) {

@@ -66,15 +66,21 @@ export const useChatStore = defineStore('chat', {
           if (this.chatHistory.length > 0) {
             this.currentChatIndex = 0
             await this.loadSessionDetail(this.chatHistory[0].session_id)
+          } else {
+            this.currentChatIndex = -1
+            this.currentMessages = []
           }
         } else {
           this.chatHistory = []
           this.currentMessages = []
+          this.currentChatIndex = -1
         }
       } catch (error) {
         console.error('加载历史对话失败：', error)
         ElMessage.warning('加载历史创作失败，仅显示新创作内容')
         this.chatHistory = []
+        this.currentMessages = []
+        this.currentChatIndex = -1
       } finally {
         this.loadingHistory = false
       }
@@ -236,6 +242,16 @@ export const useChatStore = defineStore('chat', {
 
     setLoading(status) {
       this.loading = status
+    },
+
+    reset() {
+      this.chatHistory = []
+      this.currentChatIndex = -1
+      this.currentMessages = []
+      this.sessions = []
+      this.loadingHistory = false
+      this.loading = false
+      this.clearStreamController()
     }
   }
 })
