@@ -298,7 +298,7 @@ const handleImageGeneration = async (data) => {
       aiMsg.loading = false
       aiMsg.imageLoading = false
       aiMsg.imageInfo = {
-        imageId: res.data.image_id,
+        imageId: res.data.id,
         url: res.data.url,
         prompt: res.data.prompt,
         style: res.data.style,
@@ -361,7 +361,7 @@ const handleGenerateImage = async (msg) => {
       aiMsg.loading = false
       aiMsg.imageLoading = false
       aiMsg.imageInfo = {
-        imageId: res.data.image_id,
+        imageId: res.data.id,
         url: res.data.url,
         prompt: res.data.prompt,
         style: res.data.style,
@@ -403,7 +403,7 @@ const handleRegenerateImage = async (imageInfo) => {
       
       if (currentMsg) {
         currentMsg.imageInfo.url = res.data.url
-        currentMsg.imageInfo.imageId = res.data.image_id
+        currentMsg.imageInfo.imageId = res.data.id
         ElMessage.success('图片已重新生成')
       }
     } else {
