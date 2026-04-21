@@ -19,9 +19,9 @@
               <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <h1 class="text-[32px] font-semibold text-[#1a1a1a] tracking-tight max-sm:text-2xl">AI创作助手</h1>
+          <h1 class="text-[32px] font-semibold text-[#1a1a1a] tracking-tight max-sm:text-2xl">社交内容生成平台</h1>
         </div>
-        <p class="text-base text-[#666] mb-10 leading-relaxed max-sm:text-sm">智能创作，一键生成精彩内容</p>
+        <p class="text-base text-[#666] mb-10 leading-relaxed max-sm:text-sm">一站式社交内容生成与管理平台</p>
         
         <div class="flex flex-col gap-5 max-lg:flex-row max-lg:flex-wrap max-lg:justify-center max-lg:gap-4 max-sm:gap-3">
           <div class="flex items-center gap-3 max-lg:px-4 max-lg:py-2 max-lg:bg-white max-lg:border max-lg:border-[#e5e5e5] max-lg:rounded-full">
@@ -30,7 +30,7 @@
                 <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </div>
-            <span class="text-[15px] text-[#666] max-sm:text-[13px]">AI智能生成</span>
+            <span class="text-[15px] text-[#666] max-sm:text-[13px]">AI智能生成图文</span>
           </div>
           <div class="flex items-center gap-3 max-lg:px-4 max-lg:py-2 max-lg:bg-white max-lg:border max-lg:border-[#e5e5e5] max-lg:rounded-full">
             <div class="w-10 h-10 bg-white border border-[#e5e5e5] rounded-[10px] flex items-center justify-center text-[#1a1a1a]">
@@ -40,7 +40,7 @@
                 <path d="M12 2C14.5013 4.73835 15.9228 8.29203 16 12C15.9228 15.708 14.5013 19.2616 12 22C9.49872 19.2616 8.07725 15.708 8 12C8.07725 8.29203 9.49872 4.73835 12 2Z" stroke="currentColor" stroke-width="2"/>
               </svg>
             </div>
-            <span class="text-[15px] text-[#666] max-sm:text-[13px]">多平台适配</span>
+            <span class="text-[15px] text-[#666] max-sm:text-[13px]">发布排期管理</span>
           </div>
           <div class="flex items-center gap-3 max-lg:px-4 max-lg:py-2 max-lg:bg-white max-lg:border max-lg:border-[#e5e5e5] max-lg:rounded-full">
             <div class="w-10 h-10 bg-white border border-[#e5e5e5] rounded-[10px] flex items-center justify-center text-[#1a1a1a]">
@@ -48,7 +48,7 @@
                 <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </div>
-            <span class="text-[15px] text-[#666] max-sm:text-[13px]">热点追踪</span>
+            <span class="text-[15px] text-[#666] max-sm:text-[13px]">热点浏览</span>
           </div>
         </div>
       </div>
@@ -62,7 +62,7 @@
     </div>
 
     <div class="absolute bottom-6 left-0 right-0 text-center z-10">
-      <p class="text-[#999] text-[13px] m-0">© 2024 AI创作助手 · 让创作更简单</p>
+      <p class="text-[#999] text-[13px] m-0">© 2024 社交内容生成平台 · 让创作更简单</p>
     </div>
   </div>
 </template>

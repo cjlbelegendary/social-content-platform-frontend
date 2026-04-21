@@ -9,7 +9,7 @@
             <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h3 class="text-base font-semibold text-[#1a1a1a]">AI创作助手</h3>
+        <h3 class="text-base font-semibold text-[#1a1a1a]">社交内容生成平台</h3>
       </div>
       
       <el-button size="small" @click="$emit('new-chat')" class="new-chat-btn w-full h-11 rounded-xl text-sm font-semibold border-2 border-[#1a1a1a] bg-[#1a1a1a] text-white hover:bg-[#333] hover:border-[#333] hover:text-gray-100 transition-all duration-200">
